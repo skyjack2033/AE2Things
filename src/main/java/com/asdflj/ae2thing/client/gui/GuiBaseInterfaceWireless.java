@@ -1,5 +1,7 @@
 package com.asdflj.ae2thing.client.gui;
 
+import static com.asdflj.ae2thing.client.render.RenderHelper.updateColorAndDrawItemBorder;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -11,7 +13,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -38,6 +39,7 @@ import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTe
 import com.asdflj.ae2thing.client.gui.widget.THGuiTextField;
 import com.asdflj.ae2thing.client.render.BlockPosHighlighter;
 import com.asdflj.ae2thing.common.item.ItemPatternModifier;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.network.CPacketRenamer;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.proxy.ClientProxy;
@@ -272,16 +274,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        fontRendererObj.drawString(
-            getGuiDisplayName(GuiText.InterfaceTerminal.getLocal()),
-            8,
-            6,
-            GuiColors.InterfaceTerminalTitle.getColor());
-        fontRendererObj.drawString(
-            GuiText.inventory.getLocal(),
-            VIEW_LEFT + 2,
-            this.ySize - 96,
-            GuiColors.InterfaceTerminalInventory.getColor());
+        fontRendererObj.drawString(getGuiDisplayName(GuiText.InterfaceTerminal.getLocal()), 8, 6, 4210752);
+        fontRendererObj.drawString(GuiText.inventory.getLocal(), VIEW_LEFT + 2, this.ySize - 96, 4210752);
         if (!neiPresent && tooltipStack != null) {
             renderToolTip(tooltipStack, mouseX, mouseY);
         }
@@ -470,7 +464,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         int title;
         int renderY = 0;
         final int sectionBottom = viewY + section.getHeight() - 1;
-        final int fontColor = GuiColors.InterfaceTerminalInventory.getColor();
+        final int fontColor = 4210752;
         /*
          * Render title
          */
@@ -596,11 +590,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 tooltips.add(toRender.getMessage());
             } else if (entry.doubleButton.getMouseIn()
                 && relMouseY >= Math.max(InterfaceWirelessSection.TITLE_HEIGHT, entry.optionsButton.yPosition)) {
-                    tooltips.addAll(
-                        Arrays.stream(
-                            entry.doubleButton.getMessage()
-                                .split("\\n"))
-                            .collect(Collectors.toList()));
+                    Collections.addAll(
+                        tooltips,
+                        entry.doubleButton.getMessage()
+                            .split("\\n"));
                 }
             if (!tooltips.isEmpty()) {
                 // draw a tooltip
@@ -692,7 +685,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
     private boolean drawFirstHighlightSlotBG(InterfaceWirelessEntry entry, int x, int y, int slot) {
         if (ClientProxy.getInterfaceHighlightEntry() != null && entry == ClientProxy.getInterfaceHighlightEntry().entry
             && slot == ClientProxy.getInterfaceHighlightEntry().slot) {
-            com.asdflj.ae2thing.client.render.RenderHelper.updateColorAndDrawItemBorder(x, y);
+            updateColorAndDrawItemBorder(x, y);
             return true;
         }
         return false;
@@ -1551,7 +1544,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                                     "InterfaceTerminal.PatternModifier",
                                     String.valueOf(val),
                                     getDimensionalCoordSide()));
-                        } else if ((ModAndClassUtil.GT5 || ModAndClassUtil.GT5NH) && GTUtil.isDataStick()) {
+                        } else if ((Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded()) && GTUtil.isDataStick()) {
                             AE2Thing.proxy.netHandler.sendToServer(
                                 new CPacketTerminalBtns("InterfaceTerminal.SetStick", "1", getDimensionalCoordSide()));
                         } else {

@@ -1,5 +1,6 @@
 package com.asdflj.ae2thing.client.gui.container;
 
+import static appeng.util.IterationCounter.fetchNewId;
 import static com.asdflj.ae2thing.api.Constants.MessageType.UPDATE_PLAYER_ITEM;
 
 import java.io.IOException;
@@ -11,6 +12,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ICrafting;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidContainerRegistry;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.IFluidContainerItem;
@@ -21,12 +23,12 @@ import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.api.AE2ThingAPI;
 import com.asdflj.ae2thing.client.gui.container.BaseMonitor.FluidMonitor;
 import com.asdflj.ae2thing.client.gui.container.BaseMonitor.ItemMonitor;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.inventory.item.INetworkTerminal;
 import com.asdflj.ae2thing.network.SPacketMEItemInvUpdate;
+import com.asdflj.ae2thing.network.SPacketTypeFilter;
 import com.asdflj.ae2thing.util.HBMAeAddonUtil;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.glodblock.github.common.item.ItemFluidPacket;
-import com.glodblock.github.crossmod.thaumcraft.AspectUtil;
 import com.glodblock.github.util.Util;
 
 import appeng.api.AEApi;
@@ -34,11 +36,11 @@ import appeng.api.config.Actionable;
 import appeng.api.config.Settings;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
-import appeng.api.config.TypeFilter;
 import appeng.api.config.ViewItems;
 import appeng.api.networking.IGridNode;
 import appeng.api.storage.IMEMonitor;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.storage.ITerminalTypeFilterProvider;
 import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IItemList;
@@ -48,15 +50,18 @@ import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.helpers.IContainerCraftingPacket;
+import appeng.helpers.MonitorableAction;
 import appeng.tile.inventory.IAEAppEngInventory;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
+import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
+import appeng.util.inv.AdaptorPlayerHand;
 import appeng.util.item.AEFluidStack;
 import appeng.util.item.AEItemStack;
 
-public abstract class ContainerMonitor extends BaseNetworkContainer
-    implements IConfigurableObject, IConfigManagerHost, IAEAppEngInventory, IContainerCraftingPacket {
+public abstract class ContainerMonitor extends BaseNetworkContainer implements IConfigurableObject, IConfigManagerHost,
+    IAEAppEngInventory, IContainerCraftingPacket, ITypeFilterContainer {
 
     protected final IItemList<IAEItemStack> items = AEApi.instance()
         .storage()
@@ -68,6 +73,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
     protected IConfigManagerHost gui;
     protected IConfigManager serverCM;
     protected IGridNode networkNode;
+    private boolean typeFilterSynced = false;
 
     public ContainerMonitor(InventoryPlayer ip, ITerminalHost monitorable) {
         super(ip, monitorable);
@@ -76,7 +82,6 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         this.clientCM.registerSetting(Settings.SORT_BY, SortOrder.NAME);
         this.clientCM.registerSetting(Settings.VIEW_MODE, ViewItems.ALL);
         this.clientCM.registerSetting(Settings.SORT_DIRECTION, SortDir.ASCENDING);
-        this.clientCM.registerSetting(Settings.TYPE_FILTER, TypeFilter.ALL);
         this.monitor = new ItemMonitor(this.crafters);
         this.fluidMonitor = new FluidMonitor(this.crafters);
         if (Platform.isServer()) {
@@ -133,6 +138,171 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         return this.monitor.getMonitor();
     }
 
+    public void doMonitorableAction(MonitorableAction action, EntityPlayerMP player) {
+        IMEMonitor<IAEItemStack> itemMonitor = this.getMonitor();
+        IAEItemStack slotItem = null;
+        if (itemMonitor != null && this.getTargetStack() instanceof IAEItemStack target) {
+            slotItem = itemMonitor.getAvailableItem(target, fetchNewId());
+        }
+
+        switch (action) {
+            case SHIFT_CLICK -> {
+                if (this.getPowerSource() == null || itemMonitor == null || slotItem == null) return;
+
+                IAEItemStack toExtract = slotItem.copy();
+                ItemStack item = toExtract.getItemStack();
+                toExtract.setStackSize(item.getMaxStackSize());
+                item.stackSize = (int) toExtract.getStackSize();
+
+                InventoryAdaptor adaptor = InventoryAdaptor.getAdaptor(player, ForgeDirection.UNKNOWN);
+                ItemStack remainder = adaptor.simulateAdd(item);
+                if (remainder != null) {
+                    toExtract.decStackSize(remainder.stackSize);
+                }
+
+                toExtract = Platform
+                    .poweredExtraction(this.getPowerSource(), itemMonitor, toExtract, this.getActionSource());
+                if (toExtract != null) {
+                    adaptor.addItems(toExtract.getItemStack());
+                }
+            }
+            case PICKUP_SINGLE, ROLL_UP -> {
+                if (this.getPowerSource() == null || itemMonitor == null || slotItem == null) return;
+
+                ItemStack hand = player.inventory.getItemStack();
+                if (hand != null) {
+                    if (hand.stackSize >= hand.getMaxStackSize()) return;
+                    if (!Platform.isSameItemPrecise(slotItem.getItemStack(), hand)) return;
+                }
+
+                IAEItemStack toExtract = slotItem.copy();
+                toExtract.setStackSize(1);
+                toExtract = Platform
+                    .poweredExtraction(this.getPowerSource(), itemMonitor, toExtract, this.getActionSource());
+                if (toExtract != null) {
+                    InventoryAdaptor handAdaptor = new AdaptorPlayerHand(player);
+                    ItemStack remainder = handAdaptor.addItems(toExtract.getItemStack());
+                    if (remainder != null) {
+                        itemMonitor.injectItems(toExtract, Actionable.MODULATE, this.getActionSource());
+                    }
+                    this.updateHeld(player);
+                }
+            }
+            case PICKUP_OR_SET_DOWN -> {
+                if (this.getPowerSource() == null || itemMonitor == null) return;
+
+                ItemStack hand = player.inventory.getItemStack();
+                if (hand == null) {
+                    if (slotItem == null) return;
+                    this.pickupStoredItems(slotItem.copy(), player, itemMonitor);
+                } else {
+                    IAEItemStack toInsert = AEApi.instance()
+                        .storage()
+                        .createItemStack(hand);
+                    toInsert = Platform
+                        .poweredInsert(this.getPowerSource(), itemMonitor, toInsert, this.getActionSource());
+                    player.inventory.setItemStack(toInsert == null ? null : toInsert.getItemStack());
+                    this.updateHeld(player);
+                }
+            }
+            case SPLIT_OR_PLACE_SINGLE -> {
+                if (this.getPowerSource() == null || itemMonitor == null) return;
+
+                ItemStack hand = player.inventory.getItemStack();
+                if (hand == null) {
+                    if (slotItem == null) return;
+                    this.splitStoredItems(slotItem.copy(), player, itemMonitor);
+                } else {
+                    IAEItemStack toInsert = AEApi.instance()
+                        .storage()
+                        .createItemStack(hand);
+                    toInsert.setStackSize(1);
+                    toInsert = Platform
+                        .poweredInsert(this.getPowerSource(), itemMonitor, toInsert, this.getActionSource());
+                    if (toInsert == null) {
+                        hand.stackSize--;
+                        if (hand.stackSize <= 0) player.inventory.setItemStack(null);
+                        this.updateHeld(player);
+                    }
+                }
+            }
+            case ROLL_DOWN -> {
+                ItemStack hand = player.inventory.getItemStack();
+                if (this.getPowerSource() == null || itemMonitor == null || hand == null) return;
+
+                IAEItemStack toInsert = AEItemStack.create(hand);
+                toInsert.setStackSize(1);
+                toInsert = Platform.poweredInsert(this.getPowerSource(), itemMonitor, toInsert, this.getActionSource());
+                if (toInsert == null) {
+                    hand.stackSize--;
+                    if (hand.stackSize <= 0) player.inventory.setItemStack(null);
+                    this.updateHeld(player);
+                }
+            }
+            case MOVE_REGION -> {
+                if (this.getPowerSource() == null || itemMonitor == null || slotItem == null) return;
+
+                long maxSize = slotItem.getItemStack()
+                    .getMaxStackSize();
+                InventoryAdaptor adaptor = InventoryAdaptor.getAdaptor(player, ForgeDirection.UNKNOWN);
+                while (true) {
+                    IAEItemStack toExtract = slotItem.copy();
+                    toExtract.setStackSize(maxSize);
+                    toExtract = itemMonitor.extractItems(toExtract, Actionable.SIMULATE, this.getActionSource());
+                    if (toExtract == null || toExtract.getStackSize() <= 0) break;
+
+                    ItemStack remainder = adaptor.simulateAdd(toExtract.getItemStack());
+                    if (remainder != null) {
+                        if (toExtract.getStackSize() == remainder.stackSize) break;
+                        toExtract.decStackSize(remainder.stackSize);
+                    }
+
+                    toExtract = Platform
+                        .poweredExtraction(this.getPowerSource(), itemMonitor, toExtract, this.getActionSource());
+                    if (toExtract == null || toExtract.getStackSize() <= 0) break;
+                    adaptor.addItems(toExtract.getItemStack());
+                }
+            }
+            case CREATIVE_DUPLICATE -> {
+                if (player.capabilities.isCreativeMode && slotItem != null) {
+                    ItemStack item = slotItem.getItemStack();
+                    item.stackSize = item.getMaxStackSize();
+                    player.inventory.setItemStack(item);
+                    this.updateHeld(player);
+                }
+            }
+            default -> {}
+        }
+    }
+
+    private void pickupStoredItems(IAEItemStack stack, EntityPlayerMP player, IMEMonitor<IAEItemStack> itemMonitor) {
+        stack.setStackSize(
+            stack.getItemStack()
+                .getMaxStackSize());
+        stack = Platform.poweredExtraction(this.getPowerSource(), itemMonitor, stack, this.getActionSource());
+        player.inventory.setItemStack(stack == null ? null : stack.getItemStack());
+        this.updateHeld(player);
+    }
+
+    private void splitStoredItems(IAEItemStack stack, EntityPlayerMP player, IMEMonitor<IAEItemStack> itemMonitor) {
+        long maxSize = stack.getItemStack()
+            .getMaxStackSize();
+        stack.setStackSize(maxSize);
+        stack = itemMonitor.extractItems(stack, Actionable.SIMULATE, this.getActionSource());
+        if (stack != null) {
+            long stackSize = Math.min(maxSize, stack.getStackSize());
+            stack.setStackSize((stackSize + 1) >> 1);
+            stack = Platform.poweredExtraction(this.getPowerSource(), itemMonitor, stack, this.getActionSource());
+        }
+        player.inventory.setItemStack(stack == null ? null : stack.getItemStack());
+        this.updateHeld(player);
+    }
+
+    @Override
+    public ITerminalTypeFilterProvider getTypeFilterHost() {
+        return this.host instanceof ITerminalTypeFilterProvider provider ? provider : null;
+    }
+
     protected boolean isInvalid() {
         return !this.monitor.isValid(null);
     }
@@ -167,8 +337,26 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
                 }
             }
             processItemList();
+            syncTypeFilter();
             super.detectAndSendChanges();
         }
+    }
+
+    private void syncTypeFilter() {
+        if (this.typeFilterSynced) {
+            return;
+        }
+        final ITerminalTypeFilterProvider provider = this.getTypeFilterHost();
+        if (provider == null) {
+            this.typeFilterSynced = true;
+            return;
+        }
+        for (final Object crafter : this.crafters) {
+            if (crafter instanceof EntityPlayerMP playerMP) {
+                AE2Thing.proxy.netHandler.sendTo(new SPacketTypeFilter(provider.getTypeFilter(playerMP)), playerMP);
+            }
+        }
+        this.typeFilterSynced = true;
     }
 
     @Override
@@ -235,13 +423,11 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         MutablePair<Integer, ItemStack> result = null;
         ItemStack container = AE2ThingAPI.instance()
             .getFluidContainer(ifs);
-        if (ModAndClassUtil.THE && AspectUtil.isEssentiaGas(ifs.getFluidStack())) {
-            result = AspectUtil.fillEssentiaFromGas(container, ifs.getFluidStack());
-        } else if (Util.FluidUtil.isFluidContainer(
+        if (Util.FluidUtil.isFluidContainer(
             AE2ThingAPI.instance()
                 .getFluidContainer(ifs))) {
-                    result = Util.FluidUtil.fillStack(container, ifs.getFluidStack());
-                }
+            result = Util.FluidUtil.fillStack(container, ifs.getFluidStack());
+        }
         return result != null && result.left != 0;
     }
 
@@ -270,15 +456,13 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
 
         if (targetStack == null) return;
         // The primary output itemstack
-        if (fluid != null && ((ModAndClassUtil.THE && AspectUtil.isEmptyEssentiaContainer(targetStack)
-            && AspectUtil.isEssentiaGas(fluid))
-            || (ModAndClassUtil.HBM_AE_ADDON && HBMAeAddonUtil.getItemIsEmptyContainer(targetStack, fluid))
-            || Util.FluidUtil.isEmpty(targetStack))) {
+        if (fluid != null
+            && ((Mods.HBM_AE_ADDON.isModLoaded() && HBMAeAddonUtil.getItemIsEmptyContainer(targetStack, fluid))
+                || Util.FluidUtil.isEmpty(targetStack))) {
             // Situation 1.a: Empty fluid container, and nonnull slot
             extractFluid(fluid, player, slotIndex, shift);
         } else if ((Util.FluidUtil.isFluidContainer(targetStack) && !Util.FluidUtil.isEmpty(targetStack))
-            || (ModAndClassUtil.THE && !AspectUtil.isEmptyEssentiaContainer(targetStack))
-            || (ModAndClassUtil.HBM_AE_ADDON && HBMAeAddonUtil.getItemHasFluidType(targetStack))) {
+            || (Mods.HBM_AE_ADDON.isModLoaded() && HBMAeAddonUtil.getItemHasFluidType(targetStack))) {
                 // Situation 2.a: We are holding a non-empty container.
                 insertFluid(player, slotIndex, shift);
                 // End of situation 2.a
@@ -313,15 +497,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         final int fluidPerContainer;
         final FluidStack fluidStackPerContainer;
         final boolean partialInsertSupported;
-        if (ModAndClassUtil.THE && AspectUtil.isEssentiaContainer(targetStack)) {
-            ItemStack test = targetStack.copy();
-            test.stackSize = 1;
-            IAEFluidStack fs = AspectUtil.getAEGasFromContainer(test);
-            fluidPerContainer = AspectUtil.HELPER.getContainerStoredAmount(test) * AspectUtil.R;
-            if (fs == null || fluidPerContainer == 0) return;
-            fluidStackPerContainer = fs.getFluidStack();
-            partialInsertSupported = true;
-        } else if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
+        if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
             ItemStack test = targetStack.copy();
             test.stackSize = 1;
             fluidStackPerContainer = fcItem.drain(test, Integer.MAX_VALUE, false);
@@ -339,7 +515,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
             fluidStackPerContainer = FluidContainerRegistry.getFluidForFilledItem(targetStack);
             fluidPerContainer = fluidStackPerContainer.amount;
             partialInsertSupported = false;
-        } else if (ModAndClassUtil.HBM_AE_ADDON && HBMAeAddonUtil.getItemHasFluidType(targetStack)) {
+        } else if (Mods.HBM_AE_ADDON.isModLoaded() && HBMAeAddonUtil.getItemHasFluidType(targetStack)) {
             ItemStack emptyTank = com.hbm.inventory.FluidContainerRegistry.getEmptyContainer(targetStack);
             if (emptyTank == null) {
                 return;
@@ -404,23 +580,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         ItemStack emptiedTanksStack;
         final ItemStack partialTanksStack;
 
-        if (ModAndClassUtil.THE && AspectUtil.isEssentiaContainer(targetStack)) {
-            if (emptiedTanks > 0) {
-                emptiedTanksStack = targetStack.copy();
-                emptiedTanksStack.stackSize = 1;
-                emptiedTanksStack = AspectUtil.drainEssentiaFromGas(emptiedTanksStack, fluidStackPerContainer).right;
-                emptiedTanksStack.stackSize = emptiedTanks;
-            } else {
-                emptiedTanksStack = null;
-            }
-            if (partialTanks > 0) {
-                partialTanksStack = targetStack.copy();
-                partialTanksStack.stackSize = 1;
-                emptiedTanksStack = AspectUtil.drainEssentiaFromGas(partialTanksStack, fluidStackPerContainer).right;
-            } else {
-                partialTanksStack = null;
-            }
-        } else if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
+        if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
             if (emptiedTanks > 0) {
                 emptiedTanksStack = targetStack.copy();
                 emptiedTanksStack.stackSize = 1;
@@ -436,7 +596,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
             } else {
                 partialTanksStack = null;
             }
-        } else if (ModAndClassUtil.HBM_AE_ADDON && HBMAeAddonUtil.getItemHasFluidType(targetStack)) {
+        } else if (Mods.HBM_AE_ADDON.isModLoaded() && HBMAeAddonUtil.getItemHasFluidType(targetStack)) {
             if (emptiedTanks > 0) {
                 emptiedTanksStack = com.hbm.inventory.FluidContainerRegistry.getEmptyContainer(targetStack);
                 emptiedTanksStack.stackSize = emptiedTanks;
@@ -526,15 +686,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         // Step 1: Determine container characteristics and verify fluid to be insertable
         final int fluidPerContainer;
         final boolean partialInsertSupported;
-        if (ModAndClassUtil.THE && AspectUtil.isEssentiaContainer(targetStack)) {
-            ItemStack testStack = targetStack.copy();
-            testStack.stackSize = 1;
-            fluidPerContainer = AspectUtil.fillEssentiaFromGas(testStack, clientRequestedFluidStack).left;
-            if (fluidPerContainer == 0) {
-                return;
-            }
-            partialInsertSupported = true;
-        } else if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
+        if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
             ItemStack testStack = targetStack.copy();
             testStack.stackSize = 1;
             fluidPerContainer = fcItem.fill(testStack, clientRequestedFluidStack, false);
@@ -545,7 +697,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         } else if (FluidContainerRegistry.isContainer(targetStack)) {
             fluidPerContainer = FluidContainerRegistry.getContainerCapacity(clientRequestedFluidStack, targetStack);
             partialInsertSupported = false;
-        } else if (ModAndClassUtil.HBM_AE_ADDON
+        } else if (Mods.HBM_AE_ADDON.isModLoaded()
             && HBMAeAddonUtil.getItemIsEmptyContainer(targetStack, clientRequestedFluid)) {
                 fluidPerContainer = HBMAeAddonUtil.getEmptyContainerAmount(targetStack, clientRequestedFluid);
                 partialInsertSupported = false;
@@ -580,29 +732,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
         ItemStack filledTanksStack;
         ItemStack partialTanksStack;
 
-        if (ModAndClassUtil.THE && AspectUtil.isEssentiaContainer(targetStack)) {
-            if (filledTanks > 0) {
-                filledTanksStack = targetStack.copy();
-                filledTanksStack.stackSize = 1;
-                FluidStack toInsert = extracted.getFluidStack()
-                    .copy();
-                toInsert.amount = fluidPerContainer;
-                filledTanksStack = AspectUtil.fillEssentiaFromGas(filledTanksStack, toInsert).right;
-                filledTanksStack.stackSize = filledTanks;
-            } else {
-                filledTanksStack = null;
-            }
-            if (partialTanks > 0) {
-                partialTanksStack = targetStack.copy();
-                partialTanksStack.stackSize = 1;
-                FluidStack toInsert = extracted.getFluidStack()
-                    .copy();
-                toInsert.amount = partialFill;
-                partialTanksStack = AspectUtil.fillEssentiaFromGas(partialTanksStack, toInsert).right;
-            } else {
-                partialTanksStack = null;
-            }
-        } else if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
+        if (targetStack.getItem() instanceof IFluidContainerItem fcItem) {
             if (filledTanks > 0) {
                 filledTanksStack = targetStack.copy();
                 filledTanksStack.stackSize = 1;
@@ -624,7 +754,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer
             } else {
                 partialTanksStack = null;
             }
-        } else if (ModAndClassUtil.HBM_AE_ADDON
+        } else if (Mods.HBM_AE_ADDON.isModLoaded()
             && HBMAeAddonUtil.getItemIsEmptyContainer(targetStack, clientRequestedFluid)) {
                 if (filledTanks > 0) {
                     filledTanksStack = targetStack.copy();

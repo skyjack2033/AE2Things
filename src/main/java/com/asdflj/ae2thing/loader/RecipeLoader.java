@@ -21,13 +21,12 @@ import static com.asdflj.ae2thing.loader.ItemAndBlockHolder.MANA_IMPORT_BUS;
 import static com.asdflj.ae2thing.loader.ItemAndBlockHolder.THAUMATRIUM_INTERFACE;
 import static com.asdflj.ae2thing.loader.ItemAndBlockHolder.WIRELESS_CONNECTOR_TERMINAL;
 import static com.glodblock.github.loader.ItemAndBlockHolder.CELL_HOUSING;
-import static com.glodblock.github.loader.ItemAndBlockHolder.FLUID_TERMINAL_EX;
 import static com.glodblock.github.loader.ItemAndBlockHolder.WIRELESS_INTERFACE_TERM;
+import static com.glodblock.github.loader.ItemAndBlockHolder.WIRELESS_PATTERN_TERM;
 import static thaumcraft.common.config.ConfigItems.itemResource;
 import static thaumcraft.common.config.ConfigItems.itemThaumonomicon;
 import static thaumicenergistics.common.blocks.BlockEnum.DISTILLATION_ENCODER;
 
-import net.bdew.ae2stuff.machines.wireless.MachineWireless;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
@@ -36,9 +35,10 @@ import net.minecraftforge.oredict.ShapelessOreRecipe;
 
 import com.asdflj.ae2thing.api.AE2ThingAPI;
 import com.asdflj.ae2thing.common.Config;
+import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.integration.ae2stuff.Ae2StuffIntegration;
 import com.asdflj.ae2thing.loader.recipe.WirelessTerminalEnergyRecipe;
 import com.asdflj.ae2thing.loader.recipe.WirelessTerminalQuantumBridgeRecipe;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.TicUtil;
 import com.glodblock.github.common.storage.CellType;
 
@@ -144,8 +144,6 @@ public class RecipeLoader implements Runnable {
         .maybeStack(1)
         .get();
 
-    public static final ItemStack AE2_BLOCK_WIRELESS = GameRegistry.findItemStack("ae2stuff", "Wireless", 1);
-
     @Override
     public void run() {
         // GameRegistry.addShapelessRecipe(TOGGLE_VIEW_CELL.stack(), AE2_VIEW_CELL, AE2_PROCESS_LOG);
@@ -174,7 +172,7 @@ public class RecipeLoader implements Runnable {
                 'D',
                 DIAMOND,
                 'T',
-                ModAndClassUtil.TIC && Config.backpackTerminalAddTicSupport ? TicUtil.getToolStation()
+                Mods.TINKERS_CONSTRUCT.isModLoaded() && Config.backpackTerminalAddTicSupport ? TicUtil.getToolStation()
                     : CRAFTING_TABLE));
         GameRegistry.addRecipe(
             new ShapedOreRecipe(ITEM_INFINITY_CELL.stack(), "CCC", "CCC", "CCC", 'C', AE2_DIGITAL_SINGULARITY_CELL));
@@ -186,11 +184,12 @@ public class RecipeLoader implements Runnable {
                 "CCC",
                 'C',
                 AE2FC_DIGITAL_SINGULARITY_CELL));
-        GameRegistry.addShapelessRecipe(
-            ITEM_WIRELESS_CONNECTOR_TERMINAL.stack(),
-            AE2_WIRELESS_TERMINAL,
-            MachineWireless.block());
-        GameRegistry.addShapelessRecipe(WIRELESS_CONNECTOR_TERMINAL.stack(), AE2_TERMINAL, MachineWireless.block());
+        ItemStack ae2StuffWireless = Ae2StuffIntegration.wirelessBlockStack();
+        if (ae2StuffWireless != null) {
+            GameRegistry
+                .addShapelessRecipe(ITEM_WIRELESS_CONNECTOR_TERMINAL.stack(), AE2_WIRELESS_TERMINAL, ae2StuffWireless);
+            GameRegistry.addShapelessRecipe(WIRELESS_CONNECTOR_TERMINAL.stack(), AE2_TERMINAL, ae2StuffWireless);
+        }
         GameRegistry.addShapelessRecipe(
             EX_IO_PORT.stack(),
             AE2_ME_IO_PORT,
@@ -200,14 +199,14 @@ public class RecipeLoader implements Runnable {
         GameRegistry.addShapelessRecipe(
             ITEM_WIRELESS_DUAL_INTERFACE_TERMINAL.stack(),
             WIRELESS_INTERFACE_TERM,
-            FLUID_TERMINAL_EX.stack());
+            WIRELESS_PATTERN_TERM.stack());
         GameRegistry.addShapelessRecipe(
             FLUID_PACKET_ENCODER.stack(),
             com.glodblock.github.loader.ItemAndBlockHolder.DECODER.stack());
         GameRegistry.addShapelessRecipe(
             com.glodblock.github.loader.ItemAndBlockHolder.DECODER.stack(),
             FLUID_PACKET_ENCODER.stack());
-        if (ModAndClassUtil.THE) {
+        if (Mods.THAUMIC_ENERGISTICS.isModLoaded()) {
             final ItemStack THAUMIUM_INGOT = new ItemStack(itemResource, 1, 2);
             final ItemStack RUNIC_MATRIX = new ItemStack(ConfigBlocks.blockStoneDevice, 1, 2);
             final ItemStack THAUMONOMICON = new ItemStack(itemThaumonomicon, 1);
@@ -234,15 +233,12 @@ public class RecipeLoader implements Runnable {
                 INFUSION_INTERFACE.stack(),
                 com.glodblock.github.loader.ItemAndBlockHolder.INTERFACE,
                 AE2ThingAPI.PHIAL);
-            GameRegistry.addShapelessRecipe(
-                ESSENTIA_DISCRETIZER.stack(),
-                com.glodblock.github.loader.ItemAndBlockHolder.DISCRETIZER,
-                AE2ThingAPI.PHIAL);
+            GameRegistry.addShapelessRecipe(ESSENTIA_DISCRETIZER.stack(), THE_DISTILLATION_ENCODER, AE2ThingAPI.PHIAL);
             GameRegistry.addShapelessRecipe(INFUSION_INTERFACE.stack(), THAUMATRIUM_INTERFACE.stack());
             GameRegistry.addShapelessRecipe(THAUMATRIUM_INTERFACE.stack(), INFUSION_INTERFACE.stack());
 
         }
-        if (ModAndClassUtil.BOTANIA) {
+        if (Mods.BOTANIA.isModLoaded()) {
             GameRegistry.addShapelessRecipe(
                 MANA_IMPORT_BUS.stack(),
                 com.glodblock.github.loader.ItemAndBlockHolder.FLUID_IMPORT_BUS.stack());
@@ -256,9 +252,13 @@ public class RecipeLoader implements Runnable {
                 com.glodblock.github.loader.ItemAndBlockHolder.FLUID_EXPORT_BUS.stack(),
                 MANA_EXPORT_BUS.stack());
         }
-        if (ModAndClassUtil.GT5 || ModAndClassUtil.GT5NH) {
-            GameRegistry
-                .addShapelessRecipe(ItemAndBlockHolder.WIRELESS_DISTRIBUTOR.stack(), AE2_BLOCK_WIRELESS, AE2_WIRELESS);
+        if (Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded()) {
+            if (ae2StuffWireless != null) {
+                GameRegistry.addShapelessRecipe(
+                    ItemAndBlockHolder.WIRELESS_DISTRIBUTOR.stack(),
+                    ae2StuffWireless,
+                    AE2_WIRELESS);
+            }
             for (int i = 0; i < AEColor.values().length; i++) {
                 GameRegistry.addShapelessRecipe(
                     ItemAndBlockHolder.WIRELESS_DISTRIBUTOR.stack(),

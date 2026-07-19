@@ -3,7 +3,6 @@ package com.asdflj.ae2thing.client.gui;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.entity.RenderItem;
@@ -23,32 +22,37 @@ import com.asdflj.ae2thing.client.gui.widget.IAEBasePanel;
 import com.asdflj.ae2thing.client.gui.widget.IDraggable;
 import com.asdflj.ae2thing.client.gui.widget.IGuiMonitor;
 import com.asdflj.ae2thing.client.gui.widget.IGuiSelection;
+import com.asdflj.ae2thing.client.gui.widget.ITypeFilterGui;
 import com.asdflj.ae2thing.client.gui.widget.ItemPanel;
 import com.asdflj.ae2thing.client.gui.widget.PatternPanel;
 import com.asdflj.ae2thing.client.gui.widget.THGuiTextField;
+import com.asdflj.ae2thing.client.gui.widget.TypeFilterWidget;
 import com.asdflj.ae2thing.client.me.AdvItemRepo;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.network.CPacketSwitchGuis;
 
 import appeng.api.config.Settings;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
+import appeng.api.storage.data.IAEStackType;
 import appeng.api.util.IConfigManager;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.slots.VirtualMEMonitorableSlot;
+import appeng.client.gui.slots.VirtualMESlot;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.IDropToFillTextField;
 import appeng.client.gui.widgets.ISortSource;
-import appeng.client.me.InternalSlotME;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotFakeCraftingMatrix;
 import appeng.container.slot.SlotPatternTerm;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.localization.GuiText;
 import appeng.util.IConfigManagerHost;
+import appeng.util.MonitorableTypeFilter;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
 
 public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless implements IWidgetGui, IGuiDrawSlot,
-    IGuiMonitorTerminal, ISortSource, IConfigManagerHost, IGuiSelection, IDropToFillTextField {
+    IGuiMonitorTerminal, ISortSource, IConfigManagerHost, IGuiSelection, IDropToFillTextField, ITypeFilterGui {
 
     public ContainerWirelessDualInterfaceTerminal container;
     private GuiTabButton craftingStatusBtn;
@@ -59,10 +63,13 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     private Point mouse;
     private boolean dragging = false;
     private final ItemPanel itemPanel;
+    private final TypeFilterWidget typeFilter;
 
     public GuiWirelessDualInterfaceTerminal(InventoryPlayer inventoryPlayer, ITerminalHost te) {
         super(inventoryPlayer, te);
         container = (ContainerWirelessDualInterfaceTerminal) this.inventorySlots;
+        this.typeFilter = new TypeFilterWidget(this.inventorySlots.windowId);
+        this.typeFilter.setFilters(MonitorableTypeFilter.createDefaultMap());
         this.itemPanel = new ItemPanel(this, container, this.configSrc, this);
         this.panels.add(new PatternPanel(this, container));
         this.panels.add(this.itemPanel);
@@ -73,8 +80,10 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     @Override
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
-        for (IAEBasePanel panel : this.getActivePanels()) {
-            panel.drawFG(offsetX, offsetY, mouseX, mouseY);
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive()) {
+                panel.drawFG(offsetX, offsetY, mouseX, mouseY);
+            }
         }
     }
 
@@ -82,15 +91,11 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     public void drawBG(int offsetX, int offsetY, int mouseX, int mouseY) {
         super.drawBG(offsetX, offsetY, mouseX, mouseY);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        for (IAEBasePanel panel : this.getActivePanels()) {
-            panel.drawBG(offsetX, offsetY, mouseX, mouseY);
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive()) {
+                panel.drawBG(offsetX, offsetY, mouseX, mouseY);
+            }
         }
-    }
-
-    private List<IAEBasePanel> getActivePanels() {
-        return this.panels.stream()
-            .filter(IAEBasePanel::isActive)
-            .collect(Collectors.toList());
     }
 
     @Override
@@ -115,8 +120,8 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
             if (activePanel != null && this.mouse != null) {
                 activePanel.move(mouseX - mouse.x, mouseY - mouse.y);
             } else {
-                for (IAEBasePanel panel : this.getActivePanels()) {
-                    if (panel.draggable()) {
+                for (IAEBasePanel panel : this.panels) {
+                    if (panel.isActive() && panel.draggable()) {
                         rectangle = panel.getRectangle();
                         if (mouseX > rectangle.x() && mouseX < rectangle.x() + rectangle.width()
                             && mouseY > rectangle.y()
@@ -129,8 +134,10 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
                 }
             }
         }
-        for (IAEBasePanel panel : this.getActivePanels()) {
-            panel.drawScreen(mouseX, mouseY, btn);
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive()) {
+                panel.drawScreen(mouseX, mouseY, btn);
+            }
         }
         if (this.itemPanel.getRepo()
             .hasCache()) {
@@ -152,15 +159,21 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected void mouseClicked(int xCoord, int yCoord, int btn) {
-        this.getActivePanels()
-            .forEach(p -> p.mouseClicked(xCoord, yCoord, btn));
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive()) {
+                panel.mouseClicked(xCoord, yCoord, btn);
+            }
+        }
         super.mouseClicked(xCoord, yCoord, btn);
     }
 
     @Override
     protected void mouseClickMove(final int x, final int y, final int c, final long d) {
-        this.getActivePanels()
-            .forEach(panel -> panel.mouseClickMove(x, y, c, d));
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive()) {
+                panel.mouseClickMove(x, y, c, d);
+            }
+        }
         this.dragging = true;
         super.mouseClickMove(x, y, c, d);
     }
@@ -177,7 +190,8 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected void handleMouseClick(Slot slot, int slotIdx, int ctrlDown, int mouseButton) {
-        for (IAEBasePanel panel : this.getActivePanels()) {
+        for (IAEBasePanel panel : this.panels) {
+            if (!panel.isActive()) continue;
             if (panel.handleMouseClick(slot, slotIdx, ctrlDown, mouseButton)) return;
         }
         if (slotIdx < 0) return;
@@ -185,8 +199,18 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     }
 
     @Override
+    protected boolean handleVirtualSlotClick(VirtualMESlot slot, int mouseButton) {
+        for (IAEBasePanel panel : this.panels) {
+            if (!panel.isActive()) continue;
+            if (panel.handleVirtualSlotClick(slot, mouseButton)) return true;
+        }
+        return super.handleVirtualSlotClick(slot, mouseButton);
+    }
+
+    @Override
     protected boolean mouseWheelEvent(int mouseX, int mouseY, int wheel) {
-        for (IAEBasePanel panel : this.getActivePanels()) {
+        for (IAEBasePanel panel : this.panels) {
+            if (!panel.isActive()) continue;
             if (panel.mouseWheelEvent(mouseX, mouseY, wheel)) return true;
         }
         return super.mouseWheelEvent(mouseX, mouseY, wheel);
@@ -195,7 +219,8 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     @Override
     protected void keyTyped(char character, int key) {
         this.xSize = baseXSize;
-        for (IAEBasePanel panel : this.getActivePanels()) {
+        for (IAEBasePanel panel : this.panels) {
+            if (!panel.isActive()) continue;
             if (!this.checkHotbarKeys(key) && panel.keyTyped(character, key)) return;
         }
         super.keyTyped(character, key);
@@ -203,7 +228,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     public void func_146977_a(final Slot s) {
-        if (drawSlot(s)) super.func_146977_a(s);
+        if (drawSlot(s, () -> super.func_146977_a(s))) super.func_146977_a(s);
     }
 
     @Override
@@ -222,6 +247,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
                 GuiText.CraftingStatus.getLocal(),
                 itemRender));
         this.craftingStatusBtn.setHideEdge(13); // GuiTabButton implementation //
+        this.typeFilter.init(this.buttonList, this.guiLeft - 18, this.guiTop + 8);
     }
 
     @Override
@@ -232,13 +258,16 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        this.panels.forEach(IAEBasePanel::onGuiClosed);
+        for (IAEBasePanel panel : this.panels) {
+            panel.onGuiClosed();
+        }
         Keyboard.enableRepeatEvents(false);
     }
 
     @Override
     public boolean hideItemPanelSlot(int x, int y, int w, int h) {
-        for (IAEBasePanel panel : this.getActivePanels()) {
+        for (IAEBasePanel panel : this.panels) {
+            if (!panel.isActive()) continue;
             if (panel.hideItemPanelSlot(x, y, w, h)) return true;
         }
         return false;
@@ -255,7 +284,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     }
 
     @Override
-    public List<InternalSlotME> getMeSlots() {
+    public List<VirtualMEMonitorableSlot> getMeSlots() {
         return super.getMeSlots();
     }
 
@@ -271,6 +300,11 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected void actionPerformed(final GuiButton btn) {
+        if (this.typeFilter.handleButtonClick(btn)) {
+            this.itemPanel.getRepo()
+                .updateView();
+            return;
+        }
         if (this.craftingStatusBtn == btn) {
             AE2Thing.proxy.netHandler.sendToServer(new CPacketSwitchGuis(GuiType.CRAFTING_STATUS_ITEM));
         }
@@ -297,7 +331,6 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
         }
     }
 
-    @Override
     protected boolean isPowered() {
         return ((ContainerWirelessDualInterfaceTerminal) this.inventorySlots).hasPower;
     }
@@ -313,32 +346,26 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     }
 
     @Override
-    public void postUpdate(List<IAEItemStack> list) {
-        this.getActivePanels()
-            .stream()
-            .filter(p -> p instanceof IGuiMonitor)
-            .forEach(p -> ((IGuiMonitor) p).postUpdate(list));
+    public void postStackUpdate(List<? extends IAEStack<?>> list) {
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive() && panel instanceof IGuiMonitor monitor) {
+                monitor.postStackUpdate(list);
+            }
+        }
     }
 
     @Override
     public void setScrollBar() {
-        this.getActivePanels()
-            .stream()
-            .filter(p -> p instanceof IGuiMonitor)
-            .forEach(p -> ((IGuiMonitor) p).setScrollBar());
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive() && panel instanceof IGuiMonitor monitor) {
+                monitor.setScrollBar();
+            }
+        }
     }
 
     @Override
     public AdvItemRepo getRepo() {
         return this.itemPanel.getRepo();
-    }
-
-    @Override
-    public void postFluidUpdate(List<IAEFluidStack> list) {
-        this.getActivePanels()
-            .stream()
-            .filter(p -> p instanceof IGuiMonitor)
-            .forEach(p -> ((IGuiMonitor) p).postFluidUpdate(list));
     }
 
     @Override
@@ -368,16 +395,24 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     }
 
     @Override
-    public Enum<?> getTypeFilter() {
-        return this.configSrc.getSetting(Settings.TYPE_FILTER);
+    public Reference2BooleanMap<IAEStackType<?>> getTypeFilter() {
+        return this.typeFilter.getFilters();
+    }
+
+    @Override
+    public void updateTypeFilters(Reference2BooleanMap<IAEStackType<?>> map) {
+        this.typeFilter.setFilters(map);
+        this.itemPanel.getRepo()
+            .updateView();
     }
 
     @Override
     public void updateSetting(IConfigManager manager, Enum settingName, Enum newValue) {
-        this.getActivePanels()
-            .stream()
-            .filter(p -> p instanceof IConfigManagerHost)
-            .forEach(p -> ((IConfigManagerHost) p).updateSetting(manager, settingName, newValue));
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive() && panel instanceof IConfigManagerHost host) {
+                host.updateSetting(manager, settingName, newValue);
+            }
+        }
     }
 
     @Override

@@ -16,6 +16,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.api.AE2ThingAPI;
 import com.asdflj.ae2thing.api.Constants;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.nei.ButtonConstants;
 import com.asdflj.ae2thing.nei.NEI_TH_Config;
 import com.asdflj.ae2thing.nei.object.OrderStack;
@@ -44,7 +45,7 @@ public class BRUtil {
         ItemStack item;
         for (int i = 0; i < ingredients.size(); i++) {
             item = ingredients.get(i);
-            if (!((ModAndClassUtil.GT5 || ModAndClassUtil.GT5NH)
+            if (!((Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded())
                 && NEI_TH_Config.getConfigValue(ButtonConstants.BLOCK_RENDER)
                 && GTUtil.isHatchItem(item))) {
                 in.add(new OrderStack<>(item, i));

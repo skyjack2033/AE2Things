@@ -5,7 +5,6 @@ import static net.minecraft.client.gui.GuiScreen.isShiftKeyDown;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.bdew.ae2stuff.misc.OverlayRenderHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -23,7 +22,6 @@ import com.asdflj.ae2thing.api.adapter.terminal.item.FCBaseItemTerminal;
 import com.asdflj.ae2thing.api.adapter.terminal.item.FCUltraTerminal;
 import com.asdflj.ae2thing.api.adapter.terminal.item.WCTWirelessCraftingTerminal;
 import com.asdflj.ae2thing.api.adapter.terminal.parts.AETerminal;
-import com.asdflj.ae2thing.api.adapter.terminal.parts.FCPatternTerminal;
 import com.asdflj.ae2thing.client.event.AEGuiCloseEvent;
 import com.asdflj.ae2thing.client.event.CraftTracking;
 import com.asdflj.ae2thing.client.event.EncodeEvent;
@@ -39,8 +37,9 @@ import com.asdflj.ae2thing.client.gui.GuiWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.render.BlockPosHighlighter;
 import com.asdflj.ae2thing.client.render.Notification;
-import com.asdflj.ae2thing.client.render.WirelessOverlayRender;
 import com.asdflj.ae2thing.common.item.ItemPhial;
+import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.integration.ae2stuff.Ae2StuffIntegration;
 import com.asdflj.ae2thing.loader.KeybindLoader;
 import com.asdflj.ae2thing.loader.ListenerLoader;
 import com.asdflj.ae2thing.loader.RenderLoader;
@@ -48,12 +47,6 @@ import com.asdflj.ae2thing.nei.recipes.DefaultExtractorLoader;
 import com.asdflj.ae2thing.network.CPacketCraftRequest;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.util.FindITUtil;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
-import com.glodblock.github.client.gui.GuiFluidCraftingWireless;
-import com.glodblock.github.client.gui.GuiFluidPatternExWireless;
-import com.glodblock.github.client.gui.GuiFluidPatternTerminal;
-import com.glodblock.github.client.gui.GuiFluidPatternTerminalEx;
-import com.glodblock.github.client.gui.GuiFluidPatternWireless;
 
 import appeng.api.events.GuiScrollEvent;
 import appeng.api.storage.data.IAEItemStack;
@@ -62,7 +55,6 @@ import appeng.client.gui.implementations.GuiCraftingTerm;
 import appeng.client.gui.implementations.GuiMEMonitorable;
 import appeng.client.gui.implementations.GuiPatternTerm;
 import appeng.client.gui.implementations.GuiPatternTermEx;
-import appeng.client.gui.implementations.GuiWirelessTerm;
 import codechicken.nei.api.API;
 import codechicken.nei.recipe.GuiOverlayButton;
 import codechicken.nei.recipe.GuiRecipe;
@@ -80,6 +72,16 @@ public class ClientProxy extends CommonProxy {
     public static List<MouseWheelHandler> mouseHandlers = new ArrayList<>();
     private static GuiBaseInterfaceWireless.InterfaceWirelessEntryWrapper entryWrapper = null;
 
+    @Override
+    public void scheduleClientTask(Runnable task) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.func_152345_ab()) {
+            task.run();
+        } else {
+            minecraft.func_152344_a(task);
+        }
+    }
+
     public static void setInterfaceHighlightEntry(
         GuiBaseInterfaceWireless.InterfaceWirelessEntryWrapper interfaceWirelessEntryWrapper) {
         entryWrapper = interfaceWirelessEntryWrapper;
@@ -92,13 +94,13 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void onLoadComplete(FMLLoadCompleteEvent event) {
         super.onLoadComplete(event);
-        if (ModAndClassUtil.NEI) {
+        if (Mods.NOT_ENOUGH_ITEMS.isModLoaded()) {
             new DefaultExtractorLoader().run();
-            if (ModAndClassUtil.THE) {
+            if (Mods.THAUMIC_ENERGISTICS.isModLoaded()) {
                 ItemPhial.getItems()
                     .forEach(API::hideItem);
             }
-            if (ModAndClassUtil.FIND_IT) {
+            if (Mods.FIND_IT.isModLoaded()) {
                 FindITUtil.instance.run();
             }
         }
@@ -163,30 +165,12 @@ public class ClientProxy extends CommonProxy {
         AE2ThingAPI.instance()
             .terminal()
             .registerTerminal(GuiPatternTermEx.class);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerTerminal(GuiFluidPatternTerminalEx.class);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerTerminal(GuiFluidPatternTerminal.class);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerTerminal(GuiFluidPatternExWireless.class);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerTerminal(GuiFluidPatternWireless.class);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerTerminal(GuiFluidCraftingWireless.class);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerTerminal(GuiWirelessTerm.class);
-        if (ModAndClassUtil.WCT) {
+        if (Mods.WIRELESS_CRAFTING_TERMINAL.isModLoaded()) {
             AE2ThingAPI.instance()
                 .terminal()
                 .registerTerminal(GuiWirelessCraftingTerminal.class);
         }
-        if (ModAndClassUtil.THE) {
+        if (Mods.THAUMIC_ENERGISTICS.isModLoaded()) {
             AE2ThingAPI.instance()
                 .terminal()
                 .registerTerminal(GuiInfusionPatternTerminal.class);
@@ -215,11 +199,8 @@ public class ClientProxy extends CommonProxy {
             .registerTerminalSet(WCTWirelessCraftingTerminal.instance);
         AE2ThingAPI.instance()
             .terminal()
-            .registerTerminalSet(new FCPatternTerminal());
-        AE2ThingAPI.instance()
-            .terminal()
             .registerTerminalSet(new AETerminal());
-        OverlayRenderHandler.register(new WirelessOverlayRender());
+        Ae2StuffIntegration.registerClientOverlayRenderer();
     }
 
     private void placePattern() {
@@ -336,7 +317,7 @@ public class ClientProxy extends CommonProxy {
         if (!(screen instanceof GuiContainer)) {
             return;
         }
-        if (ModAndClassUtil.FIND_IT) {
+        if (Mods.FIND_IT.isModLoaded()) {
             FindITUtil.instance.highlighter();
         }
     }

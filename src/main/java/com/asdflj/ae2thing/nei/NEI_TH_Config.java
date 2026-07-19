@@ -8,9 +8,9 @@ import com.asdflj.ae2thing.Tags;
 import com.asdflj.ae2thing.client.gui.GuiCraftingTerminal;
 import com.asdflj.ae2thing.client.gui.GuiInfusionPatternTerminal;
 import com.asdflj.ae2thing.client.gui.GuiWirelessDualInterfaceTerminal;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
+import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.nei.recipes.FluidRecipe;
 import com.github.vfyjxf.nee.nei.NEETerminalBookmarkContainerHandler;
-import com.glodblock.github.nei.recipes.FluidRecipe;
 
 import codechicken.lib.config.ConfigTagParent;
 import codechicken.nei.NEIClientConfig;
@@ -63,13 +63,13 @@ public class NEI_TH_Config implements IConfigureNEI {
         // API.addOption(new BaseToggleButton(ButtonConstants.PINNED_BAR_CRAFTING_STATE));
         API.addOption(new BaseToggleButton(ButtonConstants.CRAFTING_NOTIFICATION));
         API.addOption(new BaseToggleButton(ButtonConstants.NEI_CRAFT_ITEM));
-        if (ModAndClassUtil.PH) {
+        if (Mods.PROGRAMMABLE_HATCHES.isModLoaded()) {
             API.addOption(new BaseToggleButton(ButtonConstants.DUAL_INTERFACE_TERMINAL_FILL_CIRCUIT, false));
         }
-        if (ModAndClassUtil.BLOCK_RENDER) {
+        if (Mods.BLOCK_RENDERER.isModLoaded()) {
             API.addOption(new BaseToggleButton(ButtonConstants.BLOCK_RENDER));
         }
-        if (ModAndClassUtil.NEE) {
+        if (Mods.NOT_ENOUGH_ENERGISTICS.isModLoaded()) {
             API.registerBookmarkContainerHandler(
                 GuiWirelessDualInterfaceTerminal.class,
                 NEETerminalBookmarkContainerHandler.instance);

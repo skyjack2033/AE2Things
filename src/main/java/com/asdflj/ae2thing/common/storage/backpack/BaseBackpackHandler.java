@@ -8,6 +8,8 @@ import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidTank;
 
+import appeng.util.Platform;
+
 public abstract class BaseBackpackHandler implements IInventory {
 
     protected final IInventory inv;
@@ -41,6 +43,91 @@ public abstract class BaseBackpackHandler implements IInventory {
 
     public void markFluidAsDirty() {
 
+    }
+
+    public ItemStack injectItem(ItemStack stack) {
+        return this.injectItem(stack, false);
+    }
+
+    public ItemStack injectItem(ItemStack stack, boolean simulate) {
+        ItemStack remaining = stack.copy();
+        for (int i = 0; i < this.getSizeInventory(); i++) {
+            ItemStack slotItem = this.getStackInSlot(i);
+            if (slotItem == null || !Platform.isSameItemPrecise(slotItem, remaining)
+                || !this.isItemValidForSlot(i, remaining)) {
+                continue;
+            }
+            int moved = Math.min(this.getInsertableAmount(i, slotItem), remaining.stackSize);
+            if (moved <= 0) {
+                continue;
+            }
+            ItemStack updated = slotItem.copy();
+            updated.stackSize += moved;
+            if (!simulate) {
+                this.setInventorySlotContents(i, updated);
+            }
+            remaining.stackSize -= moved;
+            if (remaining.stackSize <= 0) {
+                return remaining;
+            }
+        }
+        for (int i = 0; i < this.getSizeInventory(); i++) {
+            if (this.getStackInSlot(i) != null || !this.isItemValidForSlot(i, remaining)) {
+                continue;
+            }
+            ItemStack added = remaining.copy();
+            added.stackSize = Math.min(this.getSlotStackLimit(i, added), remaining.stackSize);
+            if (added.stackSize <= 0) {
+                continue;
+            }
+            if (!simulate) {
+                this.setInventorySlotContents(i, added);
+            }
+            remaining.stackSize -= added.stackSize;
+            if (remaining.stackSize <= 0) {
+                return remaining;
+            }
+        }
+        return remaining;
+    }
+
+    protected int getSlotStackLimit(int slot, ItemStack stack) {
+        int itemLimit = stack.getMaxStackSize();
+        if (itemLimit <= 1) {
+            return itemLimit;
+        }
+        int inventoryLimit = this.getInventoryStackLimit();
+        if (inventoryLimit > itemLimit) {
+            return inventoryLimit;
+        }
+        return Math.min(itemLimit, inventoryLimit);
+    }
+
+    private int getInsertableAmount(int slot, ItemStack stack) {
+        return this.getSlotStackLimit(slot, stack) - stack.stackSize;
+    }
+
+    public ItemStack extractItem(ItemStack stack) {
+        ItemStack remaining = stack.copy();
+        for (int i = 0; i < this.getSizeInventory(); i++) {
+            ItemStack slotStack = this.getStackInSlot(i);
+            if (slotStack == null || !Platform.isSameItemPrecise(slotStack, remaining)) {
+                continue;
+            }
+            int size = slotStack.stackSize;
+            if (size > remaining.stackSize) {
+                slotStack.splitStack(remaining.stackSize);
+                this.setInventorySlotContents(i, slotStack.copy());
+                return stack;
+            }
+            this.setInventorySlotContents(i, null);
+            remaining.stackSize -= size;
+            if (remaining.stackSize <= 0) {
+                return stack;
+            }
+        }
+        remaining.stackSize = stack.stackSize - remaining.stackSize;
+        return remaining;
     }
 
     @Override
