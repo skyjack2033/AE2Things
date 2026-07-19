@@ -40,7 +40,7 @@ public class CPacketTypeFilter implements IMessage {
         }
         this.windowId = buf.readInt();
         final int size = buf.readInt();
-        if (size < 0 || size > registeredTypeCount) {
+        if ((size < 0) || (size > registeredTypeCount)) {
             throw new DecoderException("Invalid terminal type-filter count: " + size);
         }
         for (int i = 0; i < size; i++) {
@@ -71,12 +71,12 @@ public class CPacketTypeFilter implements IMessage {
         @Override
         public IMessage onMessage(CPacketTypeFilter message, MessageContext ctx) {
             final EntityPlayer player = ctx.getServerHandler().playerEntity;
-            final Container c = player.openContainer;
-            if (message.windowId != -1 && message.windowId != c.windowId) {
+            final Container container = player.openContainer;
+            if ((message.windowId != -1) && (message.windowId != container.windowId)) {
                 return null;
             }
-            if (c instanceof ITypeFilterContainer container) {
-                container.updateTypeFilters(message.map, player);
+            if (container instanceof ITypeFilterContainer typeFilterContainer) {
+                typeFilterContainer.updateTypeFilters(message.map, player);
             }
             return null;
         }

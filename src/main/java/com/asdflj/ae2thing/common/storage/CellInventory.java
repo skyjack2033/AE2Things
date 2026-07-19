@@ -236,14 +236,14 @@ public class CellInventory implements ITCellInventory {
         for (IInventory inv : this.modInv) {
             if (inv instanceof BaseBackpackHandler backpackHandler) {
                 injectItem = backpackHandler.injectItem(injectItem, simulate);
-                if (injectItem == null || injectItem.stackSize <= 0) {
+                if ((injectItem == null) || (injectItem.stackSize <= 0)) {
                     return injectItem;
                 }
                 continue;
             }
             for (int i = 0; i < inv.getSizeInventory(); i++) {
                 ItemStack slotItem = inv.getStackInSlot(i);
-                if (slotItem == null || !Platform.isSameItemPrecise(slotItem, injectItem)
+                if ((slotItem == null) || !Platform.isSameItemPrecise(slotItem, injectItem)
                     || !inv.isItemValidForSlot(i, injectItem)) {
                     continue;
                 }
@@ -262,7 +262,7 @@ public class CellInventory implements ITCellInventory {
                 }
             }
             for (int i = 0; i < inv.getSizeInventory(); i++) {
-                if (inv.getStackInSlot(i) != null || !inv.isItemValidForSlot(i, injectItem)) {
+                if ((inv.getStackInSlot(i) != null) || !inv.isItemValidForSlot(i, injectItem)) {
                     continue;
                 }
                 ItemStack added = injectItem.copy();
@@ -474,7 +474,7 @@ public class CellInventory implements ITCellInventory {
             return inv.isItemValidForSlot(slot, stack);
         }
         return Platform.isSameItemPrecise(slotItem, stack) && inv.isItemValidForSlot(slot, stack)
-            && this.getInsertableAmount(inv, slotItem) > 0;
+            && (this.getInsertableAmount(inv, slotItem) > 0);
     }
 
     private int getInsertableAmount(IInventory inv, ItemStack stack) {

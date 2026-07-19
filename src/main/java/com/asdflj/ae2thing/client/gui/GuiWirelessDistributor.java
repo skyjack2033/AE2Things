@@ -64,7 +64,8 @@ public class GuiWirelessDistributor extends AEBaseGui implements IInfoTerminal {
 
     @Override
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
-        this.fontRendererObj.drawString(this.getGuiDisplayName(GuiText.Terminal.getLocal()), 8, 6, 4210752);
+        this.fontRendererObj
+            .drawString(this.getGuiDisplayName(GuiText.Terminal.getLocal()), 8, 6, BaseMEGui.DEFAULT_TEXT_COLOR);
         for (IClickable clickable : this.clickables) {
             if (clickable instanceof METextField tf) {
                 if (tf.isMouseIn(mouseX, mouseY)) {
@@ -287,7 +288,7 @@ public class GuiWirelessDistributor extends AEBaseGui implements IInfoTerminal {
             DimensionalCoord a = DimensionalCoord.readFromNBT(tag);
             String name = tag.getString(Constants.NAME);
             int colorIndex = tag.getInteger(Constants.COLOR);
-            AEColor color = colorIndex >= 0 && colorIndex < AEColor.values().length ? AEColor.values()[colorIndex]
+            AEColor color = ((colorIndex >= 0) && (colorIndex < AEColor.values().length)) ? AEColor.values()[colorIndex]
                 : AEColor.Transparent;
             boolean is_linked = tag.getBoolean(Constants.IS_LINKED);
             this.repo.postUpdate(new Info(a, null, name, color, is_linked, 0));

@@ -17,6 +17,7 @@ import org.objectweb.asm.Opcodes;
 /** Guards the bytecode-level contracts needed by the AE2/Thaumic Energistics stack-type port. */
 public class StoragePortCompatibilityTest {
 
+    private static final int READ_BUFFER_SIZE = 8192;
     private static final String TILE = "com/asdflj/ae2thing/common/tile/TileEssentiaDiscretizer.class";
     private static final String PHIAL_INVENTORY = "com/asdflj/ae2thing/common/tile/TileEssentiaDiscretizer$PhialDiscretizingInventory.class";
     private static final String ESSENTIA_CRAFTING_INVENTORY = "com/asdflj/ae2thing/common/tile/TileEssentiaDiscretizer$EssentiaCraftingInventory.class";
@@ -137,7 +138,7 @@ public class StoragePortCompatibilityTest {
             .getResourceAsStream(resource);
         assertNotNull("Missing test classpath resource: " + resource, input);
         try (InputStream in = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
+            byte[] buffer = new byte[READ_BUFFER_SIZE];
             int read;
             while ((read = in.read(buffer)) != -1) {
                 output.write(buffer, 0, read);
@@ -153,7 +154,7 @@ public class StoragePortCompatibilityTest {
             @Override
             public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
                 String[] exceptions) {
-                if (methodName.equals(name) && methodDescriptor.equals(descriptor)) found[0] = true;
+                if ((methodName.equals(name)) && (methodDescriptor.equals(descriptor))) found[0] = true;
                 return super.visitMethod(access, name, descriptor, signature, exceptions);
             }
         }, 0);
@@ -169,14 +170,14 @@ public class StoragePortCompatibilityTest {
             public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
                 String[] exceptions) {
                 MethodVisitor parent = super.visitMethod(access, name, descriptor, signature, exceptions);
-                if (!methodName.equals(name) || !methodDescriptor.equals(descriptor)) return parent;
+                if ((!methodName.equals(name)) || (!methodDescriptor.equals(descriptor))) return parent;
                 return new MethodVisitor(Opcodes.ASM5, parent) {
 
                     @Override
                     public void visitMethodInsn(int opcode, String invocationOwner, String invocationName,
                         String invocationDescriptor, boolean isInterface) {
-                        if (owner.equals(invocationOwner) && calledMethod.equals(invocationName)
-                            && calledDescriptor.equals(invocationDescriptor)) {
+                        if ((owner.equals(invocationOwner)) && (calledMethod.equals(invocationName))
+                            && (calledDescriptor.equals(invocationDescriptor))) {
                             calls[0]++;
                         }
                         super.visitMethodInsn(
@@ -201,12 +202,12 @@ public class StoragePortCompatibilityTest {
             public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
                 String[] exceptions) {
                 MethodVisitor parent = super.visitMethod(access, name, descriptor, signature, exceptions);
-                if (!methodName.equals(name) || !methodDescriptor.equals(descriptor)) return parent;
+                if ((!methodName.equals(name)) || (!methodDescriptor.equals(descriptor))) return parent;
                 return new MethodVisitor(Opcodes.ASM5, parent) {
 
                     @Override
                     public void visitTypeInsn(int instructionOpcode, String instructionType) {
-                        if (opcode == instructionOpcode && type.equals(instructionType)) instructions[0]++;
+                        if ((opcode == instructionOpcode) && type.equals(instructionType)) instructions[0]++;
                         super.visitTypeInsn(instructionOpcode, instructionType);
                     }
                 };

@@ -16,10 +16,12 @@ final class PhialAmountConverter {
         try {
             previousAmount = Math.max(0, Math.subtractExact(currentAmount, signedDelta));
         } catch (ArithmeticException overflow) {
-            // A negative delta can only overflow toward a previous amount larger than Long.MAX_VALUE. Saturating keeps
-            // listener notification safe for malformed third-party deltas without changing normal storage semantics.
-            return currentAmount / amountPerUnit - (signedDelta < 0 ? Long.MAX_VALUE / amountPerUnit : 0);
+            /*
+             * A negative delta can only overflow toward a previous amount larger than Long.MAX_VALUE. Saturating keeps
+             * listener notification safe for malformed third-party deltas without changing normal storage semantics.
+             */
+            return (currentAmount / amountPerUnit) - ((signedDelta < 0) ? (Long.MAX_VALUE / amountPerUnit) : 0);
         }
-        return currentAmount / amountPerUnit - previousAmount / amountPerUnit;
+        return (currentAmount / amountPerUnit) - (previousAmount / amountPerUnit);
     }
 }

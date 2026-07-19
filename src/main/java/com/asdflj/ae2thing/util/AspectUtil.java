@@ -23,32 +23,36 @@ import thaumicenergistics.common.storage.AEEssentiaStackType;
 public final class AspectUtil {
 
     /**
-     * Amount of essentia represented by a single item form unit (phial). Replaces the old fixed AspectUtil.R ratio.
+     * Amount of essentia represented by a single item form unit (phial).
      */
-    public static final int R = AEEssentiaStackType.ESSENTIA_STACK_TYPE.getAmountPerUnit();
+    public static final int ESSENTIA_PER_ITEM = AEEssentiaStackType.ESSENTIA_STACK_TYPE.getAmountPerUnit();
 
-    public static final EssentiaItemContainerHelper HELPER = EssentiaItemContainerHelper.INSTANCE;
+    private static final EssentiaItemContainerHelper ESSENTIA_CONTAINER_HELPER = EssentiaItemContainerHelper.INSTANCE;
 
     private AspectUtil() {}
 
-    public static boolean isEssentiaContainer(ItemStack is) {
-        return is != null && AEEssentiaStackType.ESSENTIA_STACK_TYPE.isContainerItemForType(is);
+    public static boolean isEssentiaContainer(ItemStack stack) {
+        return (stack != null) && AEEssentiaStackType.ESSENTIA_STACK_TYPE.isContainerItemForType(stack);
     }
 
-    public static boolean isEmptyEssentiaContainer(ItemStack is) {
-        return is != null && HELPER.isContainerEmpty(is);
+    public static boolean isEmptyEssentiaContainer(ItemStack stack) {
+        return (stack != null) && ESSENTIA_CONTAINER_HELPER.isContainerEmpty(stack);
+    }
+
+    public static ItemStack createEmptyPhial() {
+        return ESSENTIA_CONTAINER_HELPER.createEmptyPhial();
     }
 
     @Nullable
-    public static Aspect getAspectFromJar(ItemStack is) {
-        if (is == null) return null;
-        return HELPER.getAspectInContainer(is);
+    public static Aspect getAspectFromJar(ItemStack stack) {
+        if (stack == null) return null;
+        return ESSENTIA_CONTAINER_HELPER.getAspectInContainer(stack);
     }
 
     @Nullable
-    public static AEEssentiaStack getEssentiaFromContainer(ItemStack is) {
-        if (is == null) return null;
-        return AEEssentiaStackType.ESSENTIA_STACK_TYPE.getStackFromContainerItem(is);
+    public static AEEssentiaStack getEssentiaFromContainer(ItemStack stack) {
+        if (stack == null) return null;
+        return AEEssentiaStackType.ESSENTIA_STACK_TYPE.getStackFromContainerItem(stack);
     }
 
     public static AEEssentiaStack newEssentiaStack(Aspect aspect, long amount) {
@@ -72,6 +76,6 @@ public final class AspectUtil {
      */
     public static void drawAspect(EntityPlayer player, int x, int y, Aspect aspect, long amount) {
         if (aspect == null) return;
-        new AEEssentiaStack(aspect, amount <= 0 ? 1 : amount).drawInGui(Minecraft.getMinecraft(), x, y);
+        new AEEssentiaStack(aspect, (amount <= 0) ? 1 : amount).drawInGui(Minecraft.getMinecraft(), x, y);
     }
 }

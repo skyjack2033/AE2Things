@@ -110,8 +110,8 @@ public class GuiInfusionPatternTerminal extends GuiMonitor implements IGuiMonito
             GuiText.PatternTerminalEx.getLocal(),
             8,
             this.ySize - 96 + 1 - this.getReservedSpace(),
-            4210752);
-        this.fontRendererObj.drawString(this.getGuiDisplayName(GuiText.Terminal.getLocal()), 8, 6, 4210752);
+            DEFAULT_TEXT_COLOR);
+        this.fontRendererObj.drawString(this.getGuiDisplayName(GuiText.Terminal.getLocal()), 8, 6, DEFAULT_TEXT_COLOR);
         updateButton(this.tabCraftButton, this.container.isCraftingMode());
         updateButton(this.tabProcessButton, !this.container.isCraftingMode());
         updateButton(this.combineEnableBtn, this.container.combine);

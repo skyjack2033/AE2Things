@@ -35,9 +35,11 @@ public class CraftingDebugCardObject {
     }
 
     public CraftingDebugCardObject(ItemStack itemStack) {
+        int mode;
+
         this.data = Platform.openNbtData(itemStack);
-        int mode = this.data.getByte(Constants.DEBUG_CARD_MODE);
-        this.currentMode = mode >= 0 && mode < Mode.values().length ? Mode.values()[mode] : Mode.Everything;
+        mode = this.data.getByte(Constants.DEBUG_CARD_MODE);
+        this.currentMode = ((mode >= 0) && (mode < Mode.values().length)) ? Mode.values()[mode] : Mode.Everything;
     }
 
     public Mode getMode() {

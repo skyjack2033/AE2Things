@@ -95,7 +95,7 @@ public abstract class ItemBaseWirelessTerminal extends ToolWirelessTerminal impl
         float hitX, float hitY, float hitZ) {
         if (Platform.isClient()) {
             TileEntity te = world.getTileEntity(x, y, z);
-            if (Ae2StuffIntegration.wirelessConnectorBackend()
+            if (Ae2StuffIntegration.getWirelessConnectorBackend()
                 .isWirelessTile(te)) {
                 GuiWirelessConnectorTerminal.memoryText = String
                     .format("%s%s,%s,%s", WirelessConnectorRepo.SearchMode.POS.getPrefix(), x, y, z);

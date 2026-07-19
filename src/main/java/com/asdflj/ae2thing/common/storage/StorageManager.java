@@ -165,7 +165,7 @@ public class StorageManager extends WorldSavedData {
     }
 
     public void postItemChange(final DataStorage storage, IChestOrDrive drive, IAEItemStack change) {
-        if (change == null || change.getStackSize() == 0) return;
+        if ((change == null) || (change.getStackSize() == 0)) return;
         this.postChanges(
             storage,
             drive,
@@ -178,7 +178,7 @@ public class StorageManager extends WorldSavedData {
     }
 
     public void postFluidChange(final DataStorage storage, IChestOrDrive drive, IAEFluidStack change) {
-        if (change == null || change.getStackSize() == 0) return;
+        if ((change == null) || (change.getStackSize() == 0)) return;
         this.postChanges(
             storage,
             drive,

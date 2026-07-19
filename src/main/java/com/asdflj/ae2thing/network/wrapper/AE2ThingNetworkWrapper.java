@@ -131,7 +131,7 @@ public class AE2ThingNetworkWrapper {
         try {
             REPLY reply = messageHandler.onMessage(message, context);
             if (reply != null) {
-                AELog.error("Scheduled AE2Thing message handler returned an unsupported reply packet: %s", reply);
+                AELog.error("scheduled AE2Thing message handler returned an unsupported reply packet: %s", reply);
             }
         } catch (Throwable throwable) {
             AELog.error(throwable);

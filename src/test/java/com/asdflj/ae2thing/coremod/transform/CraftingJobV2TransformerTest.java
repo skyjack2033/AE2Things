@@ -15,6 +15,7 @@ import org.objectweb.asm.Opcodes;
 
 public class CraftingJobV2TransformerTest {
 
+    private static final int READ_BUFFER_SIZE = 8192;
     private static final String CRAFTING_JOB = "appeng/crafting/v2/CraftingJobV2.class";
     private static final String ITEM_REPO = "appeng/client/me/ItemRepo.class";
     private static final String CRAFTING_JOB_CONSTRUCTOR = "(Lnet/minecraft/world/World;Lappeng/api/networking/IGrid;"
@@ -71,7 +72,7 @@ public class CraftingJobV2TransformerTest {
             .getResourceAsStream(resource);
         assertNotNull("Missing test classpath resource: " + resource, input);
         try (InputStream in = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
+            byte[] buffer = new byte[READ_BUFFER_SIZE];
             int read;
             while ((read = in.read(buffer)) != -1) {
                 output.write(buffer, 0, read);
@@ -98,14 +99,15 @@ public class CraftingJobV2TransformerTest {
             public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
                 String[] exceptions) {
                 MethodVisitor parent = super.visitMethod(access, name, descriptor, signature, exceptions);
-                if (filterMethod && (!methodName.equals(name) || !methodDescriptor.equals(descriptor))) return parent;
+                if (filterMethod && ((!methodName.equals(name)) || (!methodDescriptor.equals(descriptor))))
+                    return parent;
                 return new MethodVisitor(Opcodes.ASM5, parent) {
 
                     @Override
                     public void visitMethodInsn(int opcode, String invocationOwner, String invocationName,
                         String invocationDescriptor, boolean isInterface) {
-                        if (owner.equals(invocationOwner) && calledMethod.equals(invocationName)
-                            && calledDescriptor.equals(invocationDescriptor)) {
+                        if ((owner.equals(invocationOwner)) && (calledMethod.equals(invocationName))
+                            && (calledDescriptor.equals(invocationDescriptor))) {
                             calls[0]++;
                         }
                         super.visitMethodInsn(

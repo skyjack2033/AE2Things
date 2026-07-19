@@ -44,8 +44,8 @@ public class EssentiaStorageBusAdapter implements IFindItAdapter {
 
             List<IMEInventoryHandler> handlers = bus.getCellArray(AEEssentiaStackType.ESSENTIA_STACK_TYPE);
             for (IMEInventoryHandler handler : handlers) {
-                if (handler.getStackType() == AEEssentiaStackType.ESSENTIA_STACK_TYPE
-                    && handler.getAvailableItem(request, IterationCounter.fetchNewId()) != null) {
+                if ((handler.getStackType() == AEEssentiaStackType.ESSENTIA_STACK_TYPE)
+                    && (handler.getAvailableItem(request, IterationCounter.fetchNewId()) != null)) {
                     list.add(
                         new StorageProvider(
                             new DimensionalCoord(

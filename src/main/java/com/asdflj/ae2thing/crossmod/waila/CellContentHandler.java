@@ -43,24 +43,24 @@ public class CellContentHandler extends TooltipHandlerWaila {
     public static HashSet<Class<? extends Item>> blackList = new HashSet<>();
     private static final List<IAEStack<?>> cellContent = new ArrayList<>();
     private static final List<IAEItemStack> upgradeCard = new ArrayList<>();
-    private static final int maxStacksPerRow = 5;
+    private static final int MAX_STACKS_PER_ROW = 5;
     private static final GuiDraw.ITooltipLineHandler cellItemStackHandler = new GuiDraw.ITooltipLineHandler() {
 
         @Override
         public Dimension getSize() {
-            return new TooltipStackGridRenderer(cellContent, maxStacksPerRow, true).getSize();
+            return new TooltipStackGridRenderer(cellContent, MAX_STACKS_PER_ROW, true).getSize();
         }
 
         @Override
         public void draw(int x, int y) {
-            new TooltipStackGridRenderer(cellContent, maxStacksPerRow, true).draw(x, y, 500f);
+            new TooltipStackGridRenderer(cellContent, MAX_STACKS_PER_ROW, true).draw(x, y, 500f);
         }
     };
     private static final GuiDraw.ITooltipLineHandler cellUpgradeCardHandler = new GuiDraw.ITooltipLineHandler() {
 
         @Override
         public Dimension getSize() {
-            Dimension stacksSize = new TooltipStackGridRenderer(upgradeCard, maxStacksPerRow, false).getSize();
+            Dimension stacksSize = new TooltipStackGridRenderer(upgradeCard, MAX_STACKS_PER_ROW, false).getSize();
             return new Dimension(stacksSize.width, stacksSize.height + fontRenderer.FONT_HEIGHT);
         }
 
@@ -69,7 +69,7 @@ public class CellContentHandler extends TooltipHandlerWaila {
             if (!upgradeCard.isEmpty()) {
                 Minecraft.getMinecraft().fontRenderer
                     .drawStringWithShadow(I18n.format(NameConst.TT_INSTALLED_CARD), x, y, 0xA8A8A8);
-                new TooltipStackGridRenderer(upgradeCard, maxStacksPerRow, false)
+                new TooltipStackGridRenderer(upgradeCard, MAX_STACKS_PER_ROW, false)
                     .draw(x, y + fontRenderer.FONT_HEIGHT, 500f);
             }
         }

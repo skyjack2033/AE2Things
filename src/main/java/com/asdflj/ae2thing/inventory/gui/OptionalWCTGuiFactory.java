@@ -11,13 +11,13 @@ final class OptionalWCTGuiFactory implements IGuiFactory {
     @Override
     public Object createServerGui(EntityPlayer player, World world, int x, int y, int z, ForgeDirection face) {
         IGuiFactory delegate = getDelegate();
-        return delegate == null ? null : delegate.createServerGui(player, world, x, y, z, face);
+        return (delegate == null) ? null : delegate.createServerGui(player, world, x, y, z, face);
     }
 
     @Override
     public Object createClientGui(EntityPlayer player, World world, int x, int y, int z, ForgeDirection face) {
         IGuiFactory delegate = getDelegate();
-        return delegate == null ? null : delegate.createClientGui(player, world, x, y, z, face);
+        return (delegate == null) ? null : delegate.createClientGui(player, world, x, y, z, face);
     }
 
     private static IGuiFactory getDelegate() {

@@ -1,5 +1,8 @@
 package com.asdflj.ae2thing.client.gui.widget;
 
+import static com.asdflj.ae2thing.client.gui.BaseMEGui.CLICK_MODE_NORMAL;
+import static com.asdflj.ae2thing.client.gui.BaseMEGui.CLICK_MODE_PICK_BLOCK;
+import static com.asdflj.ae2thing.client.gui.BaseMEGui.CLICK_MODE_SHIFT;
 import static net.minecraft.client.gui.GuiScreen.isShiftKeyDown;
 
 import java.io.IOException;
@@ -316,7 +319,7 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
 
         MonitorableAction action = null;
         switch (clickMode) {
-            case 0: // pickup / set-down.
+            case CLICK_MODE_NORMAL: // pickup / set-down.
                 action = ctrlDown == 1 ? MonitorableAction.SPLIT_OR_PLACE_SINGLE : MonitorableAction.PICKUP_OR_SET_DOWN;
                 if (aeStack != null && action == MonitorableAction.PICKUP_OR_SET_DOWN
                     && aeStack.getStackSize() == 0
@@ -324,10 +327,10 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
                     action = MonitorableAction.AUTO_CRAFT;
                 }
                 break;
-            case 1:
+            case CLICK_MODE_SHIFT:
                 action = ctrlDown == 1 ? MonitorableAction.PICKUP_SINGLE : MonitorableAction.SHIFT_CLICK;
                 break;
-            case 3: // creative dupe:
+            case CLICK_MODE_PICK_BLOCK: // creative dupe:
                 if (aeStack != null && aeStack.isCraftable()) {
                     action = MonitorableAction.AUTO_CRAFT;
                 } else if (player.capabilities.isCreativeMode) {
@@ -360,7 +363,8 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
         if (!(slot instanceof VirtualMEMonitorableSlot)) return false;
         final boolean pickBlock = mouseButton == GuiMEMonitorable.keyBindPickBlockAction;
         final int ctrlDown = pickBlock ? 0 : mouseButton;
-        final int clickMode = pickBlock ? 3 : (isShiftKeyDown() ? 1 : 0);
+        final int clickMode = pickBlock ? CLICK_MODE_PICK_BLOCK
+            : (isShiftKeyDown() ? CLICK_MODE_SHIFT : CLICK_MODE_NORMAL);
         return meSlotClick(slot, ctrlDown, clickMode);
     }
 

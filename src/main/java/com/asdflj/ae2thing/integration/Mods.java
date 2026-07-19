@@ -46,21 +46,21 @@ public enum Mods implements IMod, ITargetMod {
     WAILA("Waila"),
     WIRELESS_CRAFTING_TERMINAL("ae2wct");
 
-    private final String modid;
+    private final String modId;
     private final String resourceDomain;
     private final Supplier<Boolean> supplier;
     private final TargetModBuilder targetBuilder;
     private Boolean loaded;
 
-    Mods(String modid) {
-        this(modid, null, null);
+    Mods(String modId) {
+        this(modId, null, null);
     }
 
-    Mods(String modid, Supplier<Boolean> supplier, String coreModClass) {
-        this.modid = modid;
-        this.resourceDomain = modid.toLowerCase(Locale.ENGLISH);
+    Mods(String modId, Supplier<Boolean> supplier, String coreModClass) {
+        this.modId = modId;
+        this.resourceDomain = modId.toLowerCase(Locale.ENGLISH);
         this.supplier = supplier;
-        this.targetBuilder = new TargetModBuilder().setModId(modid)
+        this.targetBuilder = new TargetModBuilder().setModId(modId)
             .setCoreModClass(coreModClass);
     }
 
@@ -73,14 +73,14 @@ public enum Mods implements IMod, ITargetMod {
     @Override
     public boolean isModLoaded() {
         if (loaded == null) {
-            loaded = supplier != null ? supplier.get() : Loader.isModLoaded(modid);
+            loaded = (supplier != null) ? supplier.get() : Loader.isModLoaded(modId);
         }
         return loaded;
     }
 
     @Override
     public String getID() {
-        return modid;
+        return modId;
     }
 
     @Override
@@ -89,7 +89,7 @@ public enum Mods implements IMod, ITargetMod {
     }
 
     public static boolean isGt5Loaded() {
-        return GREGTECH.isModLoaded() && !Loader.isModLoaded("gregapi");
+        return GREGTECH.isModLoaded() && (!Loader.isModLoaded("gregapi"));
     }
 
     public static boolean isGt5UnofficialLoaded() {
@@ -106,7 +106,7 @@ public enum Mods implements IMod, ITargetMod {
     }
 
     public static boolean isLegacyGt5Loaded() {
-        return isGt5Loaded() && !isGt5UnofficialLoaded();
+        return isGt5Loaded() && (!isGt5UnofficialLoaded());
     }
 
     public static boolean hasAe2TypeFilter() {

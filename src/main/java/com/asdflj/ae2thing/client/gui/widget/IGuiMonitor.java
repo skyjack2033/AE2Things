@@ -11,11 +11,17 @@ import appeng.client.gui.widgets.ISortSource;
 
 public interface IGuiMonitor extends ISortSource {
 
+    /**
+     * @deprecated use {@link #postStackUpdate(List)}
+     */
     @Deprecated
     default void postFluidUpdate(List<IAEFluidStack> list) {
         postStackUpdate(list);
     }
 
+    /**
+     * @deprecated use {@link #postStackUpdate(List)}
+     */
     @Deprecated
     default void postUpdate(List<IAEItemStack> list) {
         postStackUpdate(list);

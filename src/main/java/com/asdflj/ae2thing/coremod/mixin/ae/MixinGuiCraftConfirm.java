@@ -61,9 +61,11 @@ public abstract class MixinGuiCraftConfirm extends AEBaseGui {
             clickStart = false;
             start.enabled = false;
             replan.visible = false;
-            // Rebuild instead of resetStatus(): zeroed entries stay in the list, and
-            // handleInput() only copies stackSize onto existing entries, dropping the
-            // incoming usedPercent -> "<0.01%" shown after replanning.
+            /*
+             * Rebuild instead of resetStatus(): zeroed entries stay in the list, and handleInput() only copies
+             * stackSize
+             * onto existing entries, dropping the incoming usedPercent and showing "<0.01%" after replanning.
+             */
             this.storage = AEApi.instance()
                 .storage()
                 .createAEStackList();

@@ -23,15 +23,15 @@ final class WCTGuiFactory extends ItemGuiBridge<ItemWirelessCraftingTerminal> {
 
     @Override
     protected Object createServerGui(EntityPlayer player, ItemWirelessCraftingTerminal inv, ItemStack item) {
-        final IWirelessCraftingTermHandler wh = (IWirelessCraftingTermHandler) AEApi.instance()
+        final IWirelessCraftingTermHandler wirelessHandler = (IWirelessCraftingTermHandler) AEApi.instance()
             .registries()
             .wireless()
             .getWirelessTerminalHandler(item);
-        if (wh == null) {
+        if (wirelessHandler == null) {
             return null;
         }
         final WTCGuiObject term = new WTCGuiObject(
-            wh,
+            wirelessHandler,
             item,
             player,
             player.worldObj,
@@ -39,19 +39,21 @@ final class WCTGuiFactory extends ItemGuiBridge<ItemWirelessCraftingTerminal> {
             (int) player.posY,
             (int) player.posZ,
             player.inventory.currentItem);
-        AEBaseContainer bc = new ContainerWirelessCraftingTerminal(new InventoryPlayerWrapper(player, item), term);
-        bc.setOpenContext(new ContainerOpenContext(term));
-        bc.getOpenContext()
+        AEBaseContainer container = new ContainerWirelessCraftingTerminal(
+            new InventoryPlayerWrapper(player, item),
+            term);
+        container.setOpenContext(new ContainerOpenContext(term));
+        container.getOpenContext()
             .setWorld(player.worldObj);
-        bc.getOpenContext()
+        container.getOpenContext()
             .setX((int) player.posX);
-        bc.getOpenContext()
+        container.getOpenContext()
             .setY((int) player.posY);
-        bc.getOpenContext()
+        container.getOpenContext()
             .setZ((int) player.posZ);
-        bc.getOpenContext()
+        container.getOpenContext()
             .setSide(ForgeDirection.UNKNOWN);
-        return bc;
+        return container;
     }
 
     @Override

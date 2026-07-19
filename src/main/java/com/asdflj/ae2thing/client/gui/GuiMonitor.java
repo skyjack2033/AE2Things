@@ -197,11 +197,14 @@ public abstract class GuiMonitor extends BaseMEGui implements IConfigManagerHost
         saveSearchString();
         final EntityPlayer player = Minecraft.getMinecraft().thePlayer;
 
-        // mouseButton is the raw mouse button (0 left, 1 right) or keyBindPickBlockAction for pick-block.
-        // Reconstruct the legacy parameters: ctrlDown = mouse button index, clickMode = 0 normal / 1 shift / 3 pick.
+        /*
+         * mouseButton is the raw mouse button (0 left, 1 right) or keyBindPickBlockAction for pick-block. Reconstruct
+         * the legacy parameters from the mouse button and current modifier state.
+         */
         final boolean pickBlock = mouseButton == GuiMEMonitorable.keyBindPickBlockAction;
         final int ctrlDown = pickBlock ? 0 : mouseButton;
-        final int clickMode = pickBlock ? 3 : (isShiftKeyDown() ? 1 : 0);
+        final int clickMode = pickBlock ? CLICK_MODE_PICK_BLOCK
+            : (isShiftKeyDown() ? CLICK_MODE_SHIFT : CLICK_MODE_NORMAL);
 
         if (updateFluidContainer(virtualSlot, ctrlDown, clickMode)) return true;
 
@@ -220,7 +223,7 @@ public abstract class GuiMonitor extends BaseMEGui implements IConfigManagerHost
         IAEStack<?> aeStack = virtualSlot.getAEStack();
         IAEItemStack itemStack = aeStack instanceof IAEItemStack ais ? ais : null;
         switch (clickMode) {
-            case 0: // pickup / set-down.
+            case CLICK_MODE_NORMAL: // pickup / set-down.
                 action = ctrlDown == 1 ? MonitorableAction.SPLIT_OR_PLACE_SINGLE : MonitorableAction.PICKUP_OR_SET_DOWN;
                 if (aeStack != null && action == MonitorableAction.PICKUP_OR_SET_DOWN
                     && aeStack.getStackSize() == 0
@@ -228,10 +231,10 @@ public abstract class GuiMonitor extends BaseMEGui implements IConfigManagerHost
                     action = MonitorableAction.AUTO_CRAFT;
                 }
                 break;
-            case 1:
+            case CLICK_MODE_SHIFT:
                 action = ctrlDown == 1 ? MonitorableAction.PICKUP_SINGLE : MonitorableAction.SHIFT_CLICK;
                 break;
-            case 3: // creative dupe:
+            case CLICK_MODE_PICK_BLOCK: // creative dupe:
                 itemStack = transformItem(itemStack); // for fluid terminal
                 if (aeStack != null && aeStack.isCraftable()) {
                     action = MonitorableAction.AUTO_CRAFT;

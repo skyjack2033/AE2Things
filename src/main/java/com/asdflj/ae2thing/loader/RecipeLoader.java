@@ -184,7 +184,7 @@ public class RecipeLoader implements Runnable {
                 "CCC",
                 'C',
                 AE2FC_DIGITAL_SINGULARITY_CELL));
-        ItemStack ae2StuffWireless = Ae2StuffIntegration.wirelessBlockStack();
+        ItemStack ae2StuffWireless = Ae2StuffIntegration.getWirelessBlockStack();
         if (ae2StuffWireless != null) {
             GameRegistry
                 .addShapelessRecipe(ITEM_WIRELESS_CONNECTOR_TERMINAL.stack(), AE2_WIRELESS_TERMINAL, ae2StuffWireless);

@@ -97,9 +97,13 @@ public class GuiFluidPacketEncoder extends AEBaseGui implements INEIGuiHandler {
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        this.fontRendererObj.drawString(
+            getGuiDisplayName(I18n.format(NameConst.GUI_FLUID_PACKET_ENCODER)),
+            8,
+            6,
+            BaseMEGui.DEFAULT_TEXT_COLOR);
         this.fontRendererObj
-            .drawString(getGuiDisplayName(I18n.format(NameConst.GUI_FLUID_PACKET_ENCODER)), 8, 6, 4210752);
-        this.fontRendererObj.drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, 4210752);
+            .drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, BaseMEGui.DEFAULT_TEXT_COLOR);
         this.level.drawTextBox();
         if (isShiftKeyDown() && !isMul) {
             for (GuiButton btn : this.buttonList) {

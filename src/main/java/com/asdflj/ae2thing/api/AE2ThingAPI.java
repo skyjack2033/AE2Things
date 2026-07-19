@@ -71,7 +71,7 @@ public final class AE2ThingAPI implements IAE2ThingAPI {
 
     private static ItemStack createEmptyPhial() {
         if (Mods.THAUMIC_ENERGISTICS.isModLoaded()) {
-            return AspectUtil.HELPER.createEmptyPhial();
+            return AspectUtil.createEmptyPhial();
         }
         return null;
     }

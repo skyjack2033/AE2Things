@@ -31,7 +31,7 @@ public class CPacketInventoryActionTest {
                 @Override
                 public FieldVisitor visitField(int access, String name, String descriptor, String signature,
                     Object value) {
-                    if (name.equals("stack") && descriptor.equals("Lappeng/api/storage/data/IAEStack;")) {
+                    if ((name.equals("stack")) && (descriptor.equals("Lappeng/api/storage/data/IAEStack;"))) {
                         genericStackField[0] = true;
                     }
                     return super.visitField(access, name, descriptor, signature, value);

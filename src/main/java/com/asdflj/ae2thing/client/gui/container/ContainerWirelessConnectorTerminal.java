@@ -20,7 +20,7 @@ import appeng.util.Platform;
 
 public class ContainerWirelessConnectorTerminal extends BaseNetworkContainer implements INetworkTerminal {
 
-    private final WirelessConnectorBackend backend = Ae2StuffIntegration.wirelessConnectorBackend();
+    private final WirelessConnectorBackend backend = Ae2StuffIntegration.getWirelessConnectorBackend();
 
     public ContainerWirelessConnectorTerminal(InventoryPlayer ip, ITerminalHost host) {
         super(ip, host);

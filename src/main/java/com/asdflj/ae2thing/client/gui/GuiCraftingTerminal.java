@@ -76,9 +76,12 @@ public class GuiCraftingTerminal extends GuiMonitor {
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.fontRendererObj
-            .drawString(GuiText.CraftingTerminal.getLocal(), 8, this.ySize - 96 + 1 - this.getReservedSpace(), 4210752);
-        this.fontRendererObj.drawString(this.getGuiDisplayName(GuiText.Terminal.getLocal()), 8, 6, 4210752);
+        this.fontRendererObj.drawString(
+            GuiText.CraftingTerminal.getLocal(),
+            8,
+            this.ySize - 96 + 1 - this.getReservedSpace(),
+            DEFAULT_TEXT_COLOR);
+        this.fontRendererObj.drawString(this.getGuiDisplayName(GuiText.Terminal.getLocal()), 8, 6, DEFAULT_TEXT_COLOR);
     }
 
     public int getReservedSpace() {

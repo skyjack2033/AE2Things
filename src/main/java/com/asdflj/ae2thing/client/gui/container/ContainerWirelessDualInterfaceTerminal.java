@@ -457,7 +457,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
 
     private void injectPatternToPatternModifier(IInterfaceViewable host, int slot, boolean shift) {
         IInventory patterns = host.getPatterns();
-        if (!shift && (slot < 0 || slot >= patterns.getSizeInventory())) return;
+        if (!shift && ((slot < 0) || (slot >= patterns.getSizeInventory()))) return;
         PatternModifierInventory patternModifierInventory = new PatternModifierInventory(
             this.player.inventory.getItemStack(),
             -1,
@@ -483,7 +483,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         ImmutablePair<World, IInterfaceViewable> result = getWorldAndHost(tag);
         if (result == null) return;
         IInventory patterns = result.right.getPatterns();
-        if (slot < 0 || slot >= patterns.getSizeInventory()) return;
+        if ((slot < 0) || (slot >= patterns.getSizeInventory())) return;
         ItemStack item = patterns.getStackInSlot(slot);
         if (item != null) return;
         if (!this.getContainer()

@@ -82,26 +82,27 @@ public class ItemPhial extends ItemEssence implements IRegister<ItemPhial> {
     }
 
     public static AEEssentiaStack newEssentiaStack(Aspect aspect, long size) {
-        return new AEEssentiaStack(aspect, size * AspectUtil.R);
+        return new AEEssentiaStack(aspect, size * AspectUtil.ESSENTIA_PER_ITEM);
     }
 
     @Nullable
     public static IAEItemStack newAeStack(@Nullable AEEssentiaStack essentia) {
-        if (essentia == null || essentia.getAspect() == null || essentia.getStackSize() < 0) return null;
-        return newAeStack(essentia.getAspect(), essentia.getStackSize() / AspectUtil.R);
+        if ((essentia == null) || (essentia.getAspect() == null) || (essentia.getStackSize() < 0)) return null;
+        return newAeStack(essentia.getAspect(), essentia.getStackSize() / AspectUtil.ESSENTIA_PER_ITEM);
     }
 
     /**
      * Converts an essentia monitor delta to the corresponding phial facade delta. The monitor's current amount is the
      * amount after the change; comparing the converted totals on both sides of the change preserves updates that cross
-     * an item-unit boundary even when the raw delta itself is smaller than {@link AspectUtil#R}.
+     * an item-unit boundary even when the raw delta itself is smaller than {@link AspectUtil#ESSENTIA_PER_ITEM}.
      */
     @Nullable
     public static IAEItemStack newAeDeltaStack(@Nullable AEEssentiaStack current, @Nullable AEEssentiaStack change) {
-        if (change == null || change.getAspect() == null) return null;
+        if ((change == null) || (change.getAspect() == null)) return null;
 
         long currentAmount = current == null ? 0 : current.getStackSize();
-        long itemDelta = PhialAmountConverter.calculateItemDelta(currentAmount, change.getStackSize(), AspectUtil.R);
+        long itemDelta = PhialAmountConverter
+            .calculateItemDelta(currentAmount, change.getStackSize(), AspectUtil.ESSENTIA_PER_ITEM);
         return itemDelta == 0 ? null : newAeStack(change.getAspect(), itemDelta);
     }
 

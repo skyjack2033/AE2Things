@@ -55,6 +55,12 @@ import thaumcraft.api.aspects.Aspect;
 
 public abstract class BaseMEGui extends AEBaseGui implements IGuiSelection {
 
+    public static final int CLICK_MODE_NORMAL = 0;
+    public static final int CLICK_MODE_SHIFT = 1;
+    public static final int CLICK_MODE_PICK_BLOCK = 3;
+
+    public static final int DEFAULT_TEXT_COLOR = 0x404040;
+
     protected IConfigManager configSrc;
     protected TextHistory history;
     protected final List<VirtualMEMonitorableSlot> meSlots = new ArrayList<>();

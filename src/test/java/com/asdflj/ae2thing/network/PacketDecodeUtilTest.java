@@ -15,6 +15,8 @@ import io.netty.handler.codec.DecoderException;
 
 public class PacketDecodeUtilTest {
 
+    private static final int MAX_COMPRESSED_NBT_BYTES = 2 * 1024 * 1024;
+
     @Test
     public void readsCompressedNbtFromDirectBuffer() throws Exception {
         NBTTagCompound expected = new NBTTagCompound();
@@ -34,7 +36,7 @@ public class PacketDecodeUtilTest {
 
     @Test(expected = DecoderException.class)
     public void rejectsOversizedCompressedNbtBeforeDecompression() throws Exception {
-        ByteBuf oversized = Unpooled.buffer(2 * 1024 * 1024 + 1);
+        ByteBuf oversized = Unpooled.buffer(MAX_COMPRESSED_NBT_BYTES + 1);
         try {
             oversized.writerIndex(oversized.capacity());
             PacketDecodeUtil.readCompressedNbt(oversized);

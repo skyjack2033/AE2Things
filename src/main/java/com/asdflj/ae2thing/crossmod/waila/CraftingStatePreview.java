@@ -32,7 +32,7 @@ public class CraftingStatePreview extends TooltipHandlerWaila {
 
     private static final List<CPUCraftingPreview> cpus = new ArrayList<>();
     private static final FontRenderer fontRenderer = Minecraft.getMinecraft().fontRenderer;
-    private static final int maxStacksPerRow = CPUCraftingPreview.maxSize;
+    private static final int MAX_STACKS_PER_ROW = CPUCraftingPreview.maxSize;
     private static int width;
     private static final GuiDraw.ITooltipLineHandler tooltipLineHandler = new GuiDraw.ITooltipLineHandler() {
 
@@ -49,7 +49,7 @@ public class CraftingStatePreview extends TooltipHandlerWaila {
                 int j = 0;
                 for (CPUCraftingPreview cpu : cpus) {
                     fontRenderer.drawStringWithShadow(cpu.name, x, y + j * HEIGHT, 0xffffff);
-                    new TooltipStackGridRenderer(cpu.itemList, maxStacksPerRow, true)
+                    new TooltipStackGridRenderer(cpu.itemList, MAX_STACKS_PER_ROW, true)
                         .draw(x, y + fontRenderer.FONT_HEIGHT + j * HEIGHT, 500f);
                     j++;
                 }
@@ -90,7 +90,7 @@ public class CraftingStatePreview extends TooltipHandlerWaila {
         for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound data = list.getCompoundTagAt(i);
             CPUCraftingPreview cpu = CPUCraftingPreview.readFromNBT(data);
-            size = Math.max(new TooltipStackGridRenderer(cpu.itemList, maxStacksPerRow, true).getWidth(), size);
+            size = Math.max(new TooltipStackGridRenderer(cpu.itemList, MAX_STACKS_PER_ROW, true).getWidth(), size);
             cpus.add(cpu);
         }
         width = size;

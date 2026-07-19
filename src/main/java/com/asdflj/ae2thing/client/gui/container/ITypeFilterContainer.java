@@ -16,7 +16,7 @@ public interface ITypeFilterContainer {
 
     default void updateTypeFilters(Reference2BooleanMap<IAEStackType<?>> map, EntityPlayer player) {
         final ITerminalTypeFilterProvider host = this.getTypeFilterHost();
-        if (host == null || map == null) {
+        if ((host == null) || (map == null)) {
             return;
         }
         final Reference2BooleanMap<IAEStackType<?>> target = host.getTypeFilter(player);

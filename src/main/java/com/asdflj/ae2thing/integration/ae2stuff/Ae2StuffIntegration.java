@@ -10,14 +10,14 @@ public class Ae2StuffIntegration {
 
     private static WirelessConnectorBackend backend;
 
-    public static WirelessConnectorBackend wirelessConnectorBackend() {
+    public static WirelessConnectorBackend getWirelessConnectorBackend() {
         if (backend == null) {
             backend = createWirelessConnectorBackend();
         }
         return backend;
     }
 
-    public static ItemStack wirelessBlockStack() {
+    public static ItemStack getWirelessBlockStack() {
         if (!Mods.AE2_STUFF.isModLoaded()) {
             return null;
         }

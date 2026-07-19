@@ -29,8 +29,10 @@ public class CellHandler implements ICellHandler {
     @Override
     public IMEInventoryHandler<?> getCellInventory(ItemStack is, ISaveProvider container, StorageChannel channel) {
         try {
-            // The backpack terminal inventory is backed by a specific player's carried backpacks. Drives, chests and
-            // generic cell probes do not have that player context and must not construct it as a storage cell.
+            /*
+             * The backpack terminal inventory is backed by a specific player's carried backpacks. Drives, chests and
+             * generic cell probes do not have that player context and must not construct it as a storage cell.
+             */
             if (is == null || is.getItem() instanceof ItemBackpackTerminal) return null;
             if (is.getItem() instanceof IItemInventoryHandler iih) {
                 if (iih.getChannel() == channel) {

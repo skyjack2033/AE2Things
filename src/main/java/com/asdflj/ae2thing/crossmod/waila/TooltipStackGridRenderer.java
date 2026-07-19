@@ -18,9 +18,9 @@ import appeng.core.AEConfig;
 
 public class TooltipStackGridRenderer {
 
-    public static final int DEFAULT_STACK_WIDTH = 18;
-    public static final int COUNT_PADDING = 2;
-    public static final int STACK_ROW_HEIGHT = 20;
+    private static final int DEFAULT_STACK_WIDTH = 18;
+    private static final int COUNT_PADDING = 2;
+    private static final int STACK_ROW_HEIGHT = 20;
 
     private final List<? extends IAEStack<?>> stacks;
     private final int maxStacksPerRow;
@@ -64,7 +64,7 @@ public class TooltipStackGridRenderer {
         for (int i = 0; i < this.stacks.size(); i++) {
             int row = i / this.maxStacksPerRow;
             int drawY = y + row * STACK_ROW_HEIGHT;
-            if (i % this.maxStacksPerRow == 0 && i > 0) {
+            if (((i % this.maxStacksPerRow) == 0) && (i > 0)) {
                 drawX = x;
             }
 
@@ -80,7 +80,7 @@ public class TooltipStackGridRenderer {
     }
 
     private int getRows() {
-        return 1 + (this.stacks.size() - 1) / this.maxStacksPerRow;
+        return 1 + ((this.stacks.size() - 1) / this.maxStacksPerRow);
     }
 
     private int getRowWidth(int row) {

@@ -49,16 +49,16 @@ public class OKBackpackHandler extends BaseBackpackHandler {
     public ItemStack injectItem(ItemStack stack, boolean simulate) {
         BackpackWrapper wrapper = this.context.getWrapper();
         ItemStack remaining = stack.copy();
-        for (int slot = 0; slot < wrapper.getSlots() && remaining != null && remaining.stackSize > 0; slot++) {
+        for (int slot = 0; (slot < wrapper.getSlots()) && (remaining != null) && (remaining.stackSize > 0); slot++) {
             if (!wrapper.canInsert(slot, remaining)) {
                 continue;
             }
             remaining = wrapper.insertItem(slot, remaining, simulate);
         }
-        if (!simulate && (remaining == null || remaining.stackSize < stack.stackSize)) {
+        if (!simulate && ((remaining == null) || (remaining.stackSize < stack.stackSize))) {
             BackpackEntityHelpers.persistBackpack(this.context);
         }
-        return remaining == null ? null : remaining;
+        return (remaining == null) ? null : remaining;
     }
 
     @Override
@@ -66,14 +66,14 @@ public class OKBackpackHandler extends BaseBackpackHandler {
         BackpackWrapper wrapper = this.context.getWrapper();
         int remaining = stack.stackSize;
         int extractedAmount = 0;
-        for (int slot = 0; slot < wrapper.getSlots() && remaining > 0; slot++) {
+        for (int slot = 0; (slot < wrapper.getSlots()) && (remaining > 0); slot++) {
             ItemStack slotStack = wrapper.getStackInSlot(slot);
-            if (slotStack == null || !Platform.isSameItemPrecise(slotStack, stack)
+            if ((slotStack == null) || !Platform.isSameItemPrecise(slotStack, stack)
                 || !wrapper.canExtract(slot, slotStack)) {
                 continue;
             }
             ItemStack extracted = wrapper.extractItem(slot, Math.min(slotStack.stackSize, remaining), false);
-            if (extracted == null || extracted.stackSize <= 0) {
+            if ((extracted == null) || (extracted.stackSize <= 0)) {
                 continue;
             }
             extractedAmount += extracted.stackSize;
@@ -108,7 +108,7 @@ public class OKBackpackHandler extends BaseBackpackHandler {
         @Override
         public ItemStack getStackInSlot(int slot) {
             ItemStack stack = this.wrapper.getStackInSlot(slot);
-            if (stack == null || this.wrapper.canExtract(slot, stack)) {
+            if ((stack == null) || this.wrapper.canExtract(slot, stack)) {
                 return stack;
             }
             return null;
@@ -183,7 +183,7 @@ public class OKBackpackHandler extends BaseBackpackHandler {
                     continue;
                 }
                 ItemStack remaining = this.wrapper.insertItem(index, stack.copy(), true);
-                if (remaining == null || remaining.stackSize < stack.stackSize) {
+                if ((remaining == null) || (remaining.stackSize < stack.stackSize)) {
                     return true;
                 }
             }

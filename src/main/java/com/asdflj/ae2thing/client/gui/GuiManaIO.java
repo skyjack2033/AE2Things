@@ -38,8 +38,9 @@ public class GuiManaIO extends GuiUpgradeable {
                     this.bus instanceof PartManaImportBus ? NameConst.GUI_MANA_IMPORT : NameConst.GUI_MANA_EXPORT)),
             8,
             6,
-            4210752);
-        this.fontRendererObj.drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, 4210752);
+            BaseMEGui.DEFAULT_TEXT_COLOR);
+        this.fontRendererObj
+            .drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, BaseMEGui.DEFAULT_TEXT_COLOR);
 
         if (this.redstoneMode != null) {
             this.redstoneMode.set(this.cvb.getRedStoneMode());

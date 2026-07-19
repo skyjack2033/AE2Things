@@ -13,19 +13,24 @@ public enum GuiBridgeInvType {
     PLAYER_INV,
     PLAYER_BAUBLES;
 
-    private static final int FLAG = 1 << 30;
-    private static final int LIMIT = 1 << 28;
+    private static final int TYPE_SHIFT = 29;
+    private static final int TYPE_MASK = 1;
+    private static final int ENCODED_FLAG = 1 << 30;
+    private static final int ENCODED_HEADER_MASK = ENCODED_FLAG | (TYPE_MASK << TYPE_SHIFT);
+    private static final int SLOT_LIMIT = 1 << 28;
 
     public static int encode(int slot, GuiBridgeInvType type) {
-        if (Math.abs(slot) > LIMIT) {
+        if (Math.abs(slot) > SLOT_LIMIT) {
             throw new IllegalArgumentException("slot out of range");
         }
-        return FLAG | (type.ordinal() << 29) | slot;
+        return ENCODED_FLAG | (type.ordinal() << TYPE_SHIFT) | slot;
     }
 
     public static ImmutablePair<GuiBridgeInvType, Integer> decode(int value) {
-        if (Math.abs(value) > LIMIT) {
-            return new ImmutablePair<>(values()[value >> 29 & 1], value - (3 << 29 & value));
+        if (Math.abs(value) > SLOT_LIMIT) {
+            return new ImmutablePair<>(
+                values()[(value >> TYPE_SHIFT) & TYPE_MASK],
+                value - (ENCODED_HEADER_MASK & value));
         }
         return new ImmutablePair<>(PLAYER_INV, value);
     }

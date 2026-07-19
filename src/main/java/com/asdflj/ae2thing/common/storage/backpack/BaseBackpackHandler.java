@@ -53,7 +53,7 @@ public abstract class BaseBackpackHandler implements IInventory {
         ItemStack remaining = stack.copy();
         for (int i = 0; i < this.getSizeInventory(); i++) {
             ItemStack slotItem = this.getStackInSlot(i);
-            if (slotItem == null || !Platform.isSameItemPrecise(slotItem, remaining)
+            if ((slotItem == null) || !Platform.isSameItemPrecise(slotItem, remaining)
                 || !this.isItemValidForSlot(i, remaining)) {
                 continue;
             }
@@ -72,7 +72,7 @@ public abstract class BaseBackpackHandler implements IInventory {
             }
         }
         for (int i = 0; i < this.getSizeInventory(); i++) {
-            if (this.getStackInSlot(i) != null || !this.isItemValidForSlot(i, remaining)) {
+            if ((this.getStackInSlot(i) != null) || !this.isItemValidForSlot(i, remaining)) {
                 continue;
             }
             ItemStack added = remaining.copy();
@@ -111,7 +111,7 @@ public abstract class BaseBackpackHandler implements IInventory {
         ItemStack remaining = stack.copy();
         for (int i = 0; i < this.getSizeInventory(); i++) {
             ItemStack slotStack = this.getStackInSlot(i);
-            if (slotStack == null || !Platform.isSameItemPrecise(slotStack, remaining)) {
+            if ((slotStack == null) || !Platform.isSameItemPrecise(slotStack, remaining)) {
                 continue;
             }
             int size = slotStack.stackSize;

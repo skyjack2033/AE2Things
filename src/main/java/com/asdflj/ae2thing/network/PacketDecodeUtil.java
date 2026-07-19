@@ -25,7 +25,7 @@ public final class PacketDecodeUtil {
     }
 
     private static <E extends Enum<E>> E getEnum(E[] values, int ordinal, String name) {
-        if (ordinal < 0 || ordinal >= values.length) {
+        if ((ordinal < 0) || (ordinal >= values.length)) {
             throw new DecoderException("Invalid " + name + " ordinal: " + ordinal);
         }
         return values[ordinal];
@@ -37,7 +37,7 @@ public final class PacketDecodeUtil {
     }
 
     static String readUtf16(ByteBuf buf, int length, int maxLength, String name) {
-        if (length < 0 || length > maxLength || length > buf.readableBytes() / Character.BYTES) {
+        if ((length < 0) || (length > maxLength) || (length > (buf.readableBytes() / Character.BYTES))) {
             throw new DecoderException("Invalid " + name + " length: " + length);
         }
         StringBuilder value = new StringBuilder(length);
@@ -49,7 +49,7 @@ public final class PacketDecodeUtil {
 
     public static NBTTagCompound readCompressedNbt(ByteBuf buf) throws IOException {
         int length = buf.readableBytes();
-        if (length < 0 || length > MAX_COMPRESSED_NBT_BYTES) {
+        if ((length < 0) || (length > MAX_COMPRESSED_NBT_BYTES)) {
             throw new DecoderException("Compressed NBT payload is too large: " + length);
         }
         byte[] compressed = new byte[length];

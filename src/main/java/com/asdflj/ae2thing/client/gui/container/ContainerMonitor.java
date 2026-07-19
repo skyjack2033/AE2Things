@@ -141,13 +141,13 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
     public void doMonitorableAction(MonitorableAction action, EntityPlayerMP player) {
         IMEMonitor<IAEItemStack> itemMonitor = this.getMonitor();
         IAEItemStack slotItem = null;
-        if (itemMonitor != null && this.getTargetStack() instanceof IAEItemStack target) {
+        if ((itemMonitor != null) && (this.getTargetStack() instanceof IAEItemStack target)) {
             slotItem = itemMonitor.getAvailableItem(target, fetchNewId());
         }
 
         switch (action) {
             case SHIFT_CLICK -> {
-                if (this.getPowerSource() == null || itemMonitor == null || slotItem == null) return;
+                if ((this.getPowerSource() == null) || (itemMonitor == null) || (slotItem == null)) return;
 
                 IAEItemStack toExtract = slotItem.copy();
                 ItemStack item = toExtract.getItemStack();
@@ -167,7 +167,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 }
             }
             case PICKUP_SINGLE, ROLL_UP -> {
-                if (this.getPowerSource() == null || itemMonitor == null || slotItem == null) return;
+                if ((this.getPowerSource() == null) || (itemMonitor == null) || (slotItem == null)) return;
 
                 ItemStack hand = player.inventory.getItemStack();
                 if (hand != null) {
@@ -189,7 +189,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 }
             }
             case PICKUP_OR_SET_DOWN -> {
-                if (this.getPowerSource() == null || itemMonitor == null) return;
+                if ((this.getPowerSource() == null) || (itemMonitor == null)) return;
 
                 ItemStack hand = player.inventory.getItemStack();
                 if (hand == null) {
@@ -206,7 +206,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 }
             }
             case SPLIT_OR_PLACE_SINGLE -> {
-                if (this.getPowerSource() == null || itemMonitor == null) return;
+                if ((this.getPowerSource() == null) || (itemMonitor == null)) return;
 
                 ItemStack hand = player.inventory.getItemStack();
                 if (hand == null) {
@@ -228,7 +228,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
             }
             case ROLL_DOWN -> {
                 ItemStack hand = player.inventory.getItemStack();
-                if (this.getPowerSource() == null || itemMonitor == null || hand == null) return;
+                if ((this.getPowerSource() == null) || (itemMonitor == null) || (hand == null)) return;
 
                 IAEItemStack toInsert = AEItemStack.create(hand);
                 toInsert.setStackSize(1);
@@ -240,7 +240,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 }
             }
             case MOVE_REGION -> {
-                if (this.getPowerSource() == null || itemMonitor == null || slotItem == null) return;
+                if ((this.getPowerSource() == null) || (itemMonitor == null) || (slotItem == null)) return;
 
                 long maxSize = slotItem.getItemStack()
                     .getMaxStackSize();
@@ -249,7 +249,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                     IAEItemStack toExtract = slotItem.copy();
                     toExtract.setStackSize(maxSize);
                     toExtract = itemMonitor.extractItems(toExtract, Actionable.SIMULATE, this.getActionSource());
-                    if (toExtract == null || toExtract.getStackSize() <= 0) break;
+                    if ((toExtract == null) || (toExtract.getStackSize() <= 0)) break;
 
                     ItemStack remainder = adaptor.simulateAdd(toExtract.getItemStack());
                     if (remainder != null) {
@@ -259,12 +259,12 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
 
                     toExtract = Platform
                         .poweredExtraction(this.getPowerSource(), itemMonitor, toExtract, this.getActionSource());
-                    if (toExtract == null || toExtract.getStackSize() <= 0) break;
+                    if ((toExtract == null) || (toExtract.getStackSize() <= 0)) break;
                     adaptor.addItems(toExtract.getItemStack());
                 }
             }
             case CREATIVE_DUPLICATE -> {
-                if (player.capabilities.isCreativeMode && slotItem != null) {
+                if (player.capabilities.isCreativeMode && (slotItem != null)) {
                     ItemStack item = slotItem.getItemStack();
                     item.stackSize = item.getMaxStackSize();
                     player.inventory.setItemStack(item);

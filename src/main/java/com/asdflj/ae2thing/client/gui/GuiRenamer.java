@@ -67,7 +67,7 @@ public class GuiRenamer extends AEBaseGui implements IDropToFillTextField {
 
     @Override
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
-        this.fontRendererObj.drawString(GuiText.Renamer.getLocal(), 12, 8, 4210752);
+        this.fontRendererObj.drawString(GuiText.Renamer.getLocal(), 12, 8, BaseMEGui.DEFAULT_TEXT_COLOR);
     }
 
     @Override

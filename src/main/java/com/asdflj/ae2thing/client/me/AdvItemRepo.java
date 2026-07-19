@@ -100,6 +100,9 @@ public class AdvItemRepo extends ItemRepo implements Runnable {
         super.setViewCell(list);
     }
 
+    /**
+     * @deprecated use {@link #postUpdate(IAEStack)}
+     */
     @Override
     @Deprecated
     public void postUpdate(IAEItemStack is) {
