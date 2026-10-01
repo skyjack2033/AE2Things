@@ -10,11 +10,7 @@ import com.asdflj.ae2thing.api.adapter.pattern.IRecipeHandler;
 import com.asdflj.ae2thing.api.adapter.pattern.THDualInterfacePatternTerminal;
 import com.asdflj.ae2thing.client.gui.container.ContainerInfusionPatternTerminal;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
-import com.glodblock.github.client.gui.container.ContainerFluidPatternExWireless;
-import com.glodblock.github.client.gui.container.ContainerFluidPatternTerminal;
-import com.glodblock.github.client.gui.container.ContainerFluidPatternTerminalEx;
-import com.glodblock.github.client.gui.container.ContainerFluidPatternWireless;
+import com.asdflj.ae2thing.integration.Mods;
 
 import appeng.container.implementations.ContainerPatternTerm;
 import appeng.container.implementations.ContainerPatternTermEx;
@@ -69,30 +65,14 @@ public class PatternTerminalMouseWheelLoader implements Runnable {
                 });
         AE2ThingAPI.instance()
             .terminal()
-            .registerPatternTerminal(() -> ContainerPatternTerm.class)
+            .registerPatternTerminal(new FCPatternTerminal(ContainerPatternTerm.class))
             .registerIdentifier(Constants.NEI_MOUSE_WHEEL, handler);
         AE2ThingAPI.instance()
             .terminal()
-            .registerPatternTerminal(() -> ContainerPatternTermEx.class)
-            .registerIdentifier(Constants.NEI_MOUSE_WHEEL, handler);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerPatternTerminal(new FCPatternTerminal(ContainerFluidPatternTerminal.class))
-            .registerIdentifier(Constants.NEI_MOUSE_WHEEL, handler);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerPatternTerminal(new FCPatternTerminal(ContainerFluidPatternWireless.class))
-            .registerIdentifier(Constants.NEI_MOUSE_WHEEL, handler);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerPatternTerminal(new FCPatternTerminal(ContainerFluidPatternTerminalEx.class))
-            .registerIdentifier(Constants.NEI_MOUSE_WHEEL, handler);
-        AE2ThingAPI.instance()
-            .terminal()
-            .registerPatternTerminal(new FCPatternTerminal(ContainerFluidPatternExWireless.class))
+            .registerPatternTerminal(new FCPatternTerminal(ContainerPatternTermEx.class))
             .registerIdentifier(Constants.NEI_MOUSE_WHEEL, handler);
 
-        if (ModAndClassUtil.THE) {
+        if (Mods.THAUMIC_ENERGISTICS.isModLoaded()) {
             AE2ThingAPI.instance()
                 .terminal()
                 .registerPatternTerminal(() -> ContainerInfusionPatternTerminal.class)

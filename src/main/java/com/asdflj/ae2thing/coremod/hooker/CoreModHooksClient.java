@@ -3,23 +3,19 @@ package com.asdflj.ae2thing.coremod.hooker;
 import java.util.HashMap;
 import java.util.List;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.I18n;
-import net.minecraftforge.fluids.FluidStack;
 
-import com.asdflj.ae2thing.util.ModAndClassUtil;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.util.TheUtil;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.client.gui.GuiDualInterface;
+import com.glodblock.github.client.gui.GuiFluidInterface;
 import com.glodblock.github.common.item.ItemFluidDrop;
-import com.glodblock.github.crossmod.thaumcraft.AspectUtil;
 
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.util.Platform;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import thaumcraft.api.aspects.Aspect;
-import thaumicenergistics.common.items.ItemCraftingAspect;
 
 @SideOnly(Side.CLIENT)
 public class CoreModHooksClient {
@@ -39,16 +35,19 @@ public class CoreModHooksClient {
 
     private static final HashMap<IAEItemStack, ItemInfo> cache = new HashMap<>();
 
-    public static String getModId(final IAEItemStack is) {
-        if (cache.containsKey(is) && cache.get(is).modId != null) {
-            return cache.get(is).modId;
-        } else if (is.getItem() instanceof ItemFluidDrop) {
-            String id = Util.getModId(is);
-            putCache(is, id, null, null);
-            return id;
-        } else {
+    public static String getModId(final IAEStack<?> stack) {
+        if (stack instanceof IAEItemStack is) {
+            if (cache.containsKey(is) && cache.get(is).modId != null) {
+                return cache.get(is).modId;
+            } else if (is.getItem() instanceof ItemFluidDrop) {
+                String id = Util.getModId(is);
+                putCache(is, id, null, null);
+                return id;
+            }
             return Platform.getModId(is);
         }
+        String id = stack.getModId();
+        return id == null ? "** Null" : id;
     }
 
     public static String getItemDisplayName(final Object o) {
@@ -79,23 +78,14 @@ public class CoreModHooksClient {
         if (o instanceof IAEItemStack is) {
             if (cache.containsKey(is) && cache.get(is).tooltip != null) {
                 return cache.get(is).tooltip;
-            } else if (is.getItem() instanceof ItemFluidDrop) {
-                FluidStack fs = ItemFluidDrop.getFluidStack(is.getItemStack());
-                if (ModAndClassUtil.THE && AspectUtil.isEssentiaGas(fs)) {
-                    Aspect aspect = AspectUtil.getAspectFromGas(fs);
-                    List<String> tooltip = ItemCraftingAspect.createStackForAspect(aspect, 1)
-                        .getTooltip(Minecraft.getMinecraft().thePlayer, false);
-                    putCache(is, null, null, tooltip);
-                    return tooltip;
-                }
             }
         }
 
         return Platform.getTooltip(o);
     }
 
-    public static String translateToLocal(String displayName, GuiDualInterface dualInterface) {
-        if (ModAndClassUtil.THE) {
+    public static String translateToLocal(String displayName, GuiFluidInterface dualInterface) {
+        if (Mods.THAUMIC_ENERGISTICS.isModLoaded()) {
             return TheUtil.getGuiDualInterfaceDisplayName(displayName, dualInterface);
         }
         return I18n.format(displayName);

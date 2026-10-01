@@ -8,9 +8,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.ICrafting;
 
 import com.asdflj.ae2thing.AE2Thing;
+import com.asdflj.ae2thing.common.storage.RefreshableStorageMonitor;
 import com.asdflj.ae2thing.network.SPacketMEItemInvUpdate;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
-import com.asdflj.ae2thing.util.TheUtil;
 import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.AEApi;
@@ -71,18 +70,21 @@ public class ItemMonitor implements IMEMonitorHandlerReceiver<IAEItemStack>, IPr
     }
 
     private void fluidHandler(IAEItemStack send) {
-        if (this.fluidMonitorObject != null && ModAndClassUtil.THE && TheUtil.isItemCraftingAspect(send)) {
-            this.fluidMonitorObject.addItemCraftingAspect(send);
-        } else if (this.fluidMonitorObject != null && send.getStackSize() == 0
-            && send.getItem() instanceof ItemFluidDrop) {
-                this.fluidMonitorObject.addItemCraftingFluid(send);
-            }
+        if (this.fluidMonitorObject != null && send.getStackSize() == 0 && send.getItem() instanceof ItemFluidDrop) {
+            this.fluidMonitorObject.addItemCraftingFluid(send);
+        }
     }
 
     @Override
     public void processItemList() {
+        IItemList<IAEItemStack> monitorCache = null;
+        if (this.itemMonitor instanceof RefreshableStorageMonitor refreshable) {
+            monitorCache = refreshable.refreshExternalChanges(null, false);
+        }
         if (!this.items.isEmpty()) {
-            final IItemList<IAEItemStack> monitorCache = this.itemMonitor.getStorageList();
+            if (monitorCache == null) {
+                monitorCache = this.itemMonitor.getStorageList();
+            }
             List<IAEItemStack> toSend = new ArrayList<>();
             for (final IAEItemStack is : this.items) {
                 IAEItemStack send = monitorCache.findPrecise(is);
@@ -108,7 +110,9 @@ public class ItemMonitor implements IMEMonitorHandlerReceiver<IAEItemStack>, IPr
     @Override
     public void queueInventory(ICrafting c) {
         if (Platform.isServer() && c instanceof EntityPlayer && this.itemMonitor != null) {
-            final IItemList<IAEItemStack> monitorCache = this.itemMonitor.getStorageList();
+            final IItemList<IAEItemStack> monitorCache = this.itemMonitor instanceof RefreshableStorageMonitor refreshable
+                ? refreshable.refreshExternalChanges(null, true)
+                : this.itemMonitor.getStorageList();
             List<IAEItemStack> toSend = new ArrayList<>();
             for (final IAEItemStack is : monitorCache) {
                 fluidHandler(is.copy());

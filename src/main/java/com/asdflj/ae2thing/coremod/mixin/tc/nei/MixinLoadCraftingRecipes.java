@@ -8,13 +8,19 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-import codechicken.nei.recipe.TemplateRecipeHandler;
-import ru.timeconqueror.tcneiadditions.nei.AspectFromItemStackHandler;
+import com.gtnewhorizons.aspectrecipeindex.nei.ItemsContainingAspectHandler;
 
-@Mixin(AspectFromItemStackHandler.class)
+import codechicken.nei.recipe.TemplateRecipeHandler;
+
+@Mixin(ItemsContainingAspectHandler.class)
 public abstract class MixinLoadCraftingRecipes extends TemplateRecipeHandler {
 
-    @ModifyVariable(method = "loadCraftingRecipes", at = @At("HEAD"), remap = false, ordinal = 0, argsOnly = true)
+    @ModifyVariable(
+        method = "loadCraftingRecipes*",
+        at = @At("HEAD"),
+        remap = false,
+        argsOnly = true,
+        name = "ingredient")
     public ItemStack ae2thing$loadCraftingRecipes(ItemStack ingredient) {
         return itemPhial2ItemAspect(ingredient);
     }

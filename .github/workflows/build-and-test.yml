@@ -2,10 +2,11 @@
 name: Build and test
 
 on:
+  workflow_dispatch:
   pull_request:
-    branches: [ master, main ]
+    branches: ['**']
   push:
-    branches: [ master, main ]
+    branches: ['**']
 
 jobs:
   build-and-test:

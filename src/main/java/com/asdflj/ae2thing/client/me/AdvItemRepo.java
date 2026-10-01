@@ -23,6 +23,7 @@ import com.asdflj.ae2thing.common.Config;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IItemList;
 import appeng.client.gui.widgets.IScrollSource;
 import appeng.client.gui.widgets.ISortSource;
@@ -51,12 +52,11 @@ public class AdvItemRepo extends ItemRepo implements Runnable {
             }
         });
 
-    protected final ArrayList<IAEItemStack> view = Ae2ReflectClient.getView(this);
-    protected final ArrayList<ItemStack> dsp = Ae2ReflectClient.getDsp(this);
-    protected final IItemList<IAEItemStack> list = Ae2ReflectClient.getList(this);
+    protected final ArrayList<IAEStack<?>> view = Ae2ReflectClient.getView(this);
+    protected final IItemList<IAEStack<?>> list = Ae2ReflectClient.getList(this);
 
     protected AdvItemRepo repo;
-    protected final Set<IAEItemStack> cache = Collections.synchronizedSet(new HashSet<>());
+    protected final Set<IAEStack<?>> cache = Collections.synchronizedSet(new HashSet<>());
     protected IGuiMonitor gui;
     private static final Lock lock = new ReentrantLock();
 
@@ -100,8 +100,17 @@ public class AdvItemRepo extends ItemRepo implements Runnable {
         super.setViewCell(list);
     }
 
+    /**
+     * @deprecated use {@link #postUpdate(IAEStack)}
+     */
     @Override
+    @Deprecated
     public void postUpdate(IAEItemStack is) {
+        this.postUpdate((IAEStack<?>) is);
+    }
+
+    @Override
+    public void postUpdate(IAEStack<?> is) {
         if (this.hasCache()) {
             lock.lock();
             this.cache.remove(is);
@@ -128,7 +137,7 @@ public class AdvItemRepo extends ItemRepo implements Runnable {
     public void run() {
         try {
             lock.lock();
-            for (IAEItemStack is : this.cache) {
+            for (IAEStack<?> is : this.cache) {
                 this.repo.postUpdate(is);
             }
             this.cache.clear();
@@ -139,11 +148,8 @@ public class AdvItemRepo extends ItemRepo implements Runnable {
         try {
             lock.lock();
             this.view.clear();
-            this.dsp.clear();
             this.view.ensureCapacity(this.repo.view.size());
-            this.dsp.ensureCapacity(this.repo.dsp.size());
             this.view.addAll(this.repo.view);
-            this.dsp.addAll(this.repo.dsp);
             this.gui.setScrollBar();
         } finally {
             lock.unlock();

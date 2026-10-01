@@ -5,12 +5,12 @@ import net.minecraft.util.ResourceLocation;
 import com.asdflj.ae2thing.common.Config;
 import com.asdflj.ae2thing.common.storage.CellHandler;
 import com.asdflj.ae2thing.crossmod.waila.WailaInit;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.loader.ChannelLoader;
 import com.asdflj.ae2thing.loader.ItemAndBlockHolder;
 import com.asdflj.ae2thing.loader.RecipeLoader;
 import com.asdflj.ae2thing.proxy.CommonProxy;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
 
 import appeng.api.AEApi;
 import cpw.mods.fml.common.Mod;
@@ -27,7 +27,7 @@ import cpw.mods.fml.common.network.NetworkRegistry;
     modid = AE2Thing.MODID,
     version = Tags.VERSION,
     name = AE2Thing.NAME,
-    dependencies = "required-after:appliedenergistics2;required-after:ae2fc;required-after:ae2stuff;after:thaumicenergistics;after:ic2")
+    dependencies = "required-after:appliedenergistics2;required-after:ae2fc;required-after:NotEnoughItems;after:ae2stuff;after:thaumicenergistics;after:ic2")
 public class AE2Thing {
 
     public static final String MODID = "ae2thing";
@@ -55,7 +55,7 @@ public class AE2Thing {
     // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
     public void init(FMLInitializationEvent event) {
         proxy.init(event);
-        if (ModAndClassUtil.WAILA) {
+        if (Mods.WAILA.isModLoaded()) {
             WailaInit.run();
         }
     }
