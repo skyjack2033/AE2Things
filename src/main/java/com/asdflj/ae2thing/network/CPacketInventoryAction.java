@@ -12,39 +12,32 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 
-import com.asdflj.ae2thing.AE2Thing;
-import com.asdflj.ae2thing.client.gui.container.ContainerCraftingTerminal;
-import com.asdflj.ae2thing.client.gui.container.ContainerPatternValueAmount;
 import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.BlockPos;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.glodblock.github.common.item.ItemFluidDrop;
-import com.glodblock.github.crossmod.thaumcraft.AspectUtil;
 
-import appeng.api.AEApi;
-import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
-import appeng.container.interfaces.IInventorySlotAware;
 import appeng.helpers.InventoryAction;
 import appeng.util.item.AEItemStack;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
-import thaumcraft.api.aspects.Aspect;
-import thaumicenergistics.common.items.ItemCraftingAspect;
+import io.netty.handler.codec.DecoderException;
+import io.netty.handler.codec.EncoderException;
 
 public class CPacketInventoryAction implements IMessage {
 
     private InventoryAction action;
     private int slot;
     private long id;
-    private IAEItemStack stack;
+    private IAEStack<?> stack;
     private boolean isEmpty;
 
     public CPacketInventoryAction() {}
@@ -57,7 +50,7 @@ public class CPacketInventoryAction implements IMessage {
         this.isEmpty = true;
     }
 
-    public CPacketInventoryAction(final InventoryAction action, final int slot, final int id, IAEItemStack stack) {
+    public CPacketInventoryAction(final InventoryAction action, final int slot, final int id, IAEStack<?> stack) {
         this.action = action;
         this.slot = slot;
         this.id = id;
@@ -73,24 +66,24 @@ public class CPacketInventoryAction implements IMessage {
         buf.writeBoolean(isEmpty);
         if (!isEmpty) {
             try {
-                stack.writeToPacket(buf);
+                IAEStack.writeToPacketGeneric(buf, stack);
             } catch (IOException e) {
-                e.printStackTrace();
+                throw new EncoderException("Failed to encode inventory action stack", e);
             }
         }
     }
 
     @Override
     public void fromBytes(ByteBuf buf) {
-        action = InventoryAction.values()[buf.readInt()];
+        action = PacketDecodeUtil.readIntEnum(buf, InventoryAction.values(), "inventory action");
         slot = buf.readInt();
         id = buf.readLong();
         isEmpty = buf.readBoolean();
         if (!isEmpty) {
             try {
-                stack = AEItemStack.loadItemStackFromPacket(buf);
+                stack = IAEStack.fromPacketGeneric(buf);
             } catch (IOException e) {
-                e.printStackTrace();
+                throw new DecoderException("Failed to decode inventory action stack", e);
             }
         }
     }
@@ -101,9 +94,6 @@ public class CPacketInventoryAction implements IMessage {
         @Override
         public IMessage onMessage(CPacketInventoryAction message, MessageContext ctx) {
             final EntityPlayerMP sender = ctx.getServerHandler().playerEntity;
-            if(sender.openContainer instanceof ContainerCraftingTerminal) {
-                return null;
-            }
             if (sender.openContainer instanceof final AEBaseContainer baseContainer) {
                 Object target = baseContainer.getTarget();
                 if (message.action == InventoryAction.AUTO_CRAFT) {
@@ -114,20 +104,15 @@ public class CPacketInventoryAction implements IMessage {
                             if (message.stack == null){
                                 message.stack = baseContainer.getTargetStack();
                             }
-                            if(message.stack.getItem() instanceof ItemFluidDrop){
-                                IAEFluidStack fs = ItemFluidDrop.getAeFluidStack(message.stack);
-                                if(ModAndClassUtil.THE &&AspectUtil.isEssentiaGas(fs)){
-                                    Aspect aspect = AspectUtil.getAspectFromGas(fs.getFluidStack());
-                                    IAEItemStack result = AEApi.instance().storage()
-                                        .createItemStack(ItemCraftingAspect.createStackForAspect(aspect, 1));
-                                    baseContainer.setTargetStack(result);
-                                }else{
-                                    ItemStack is = message.stack.getItemStack().copy();
-                                    NBTTagCompound data = is.getTagCompound();
+                            if(message.stack instanceof IAEItemStack itemStack
+                                && itemStack.getItem() instanceof ItemFluidDrop){
+                                ItemStack is = itemStack.getItemStack().copy();
+                                NBTTagCompound data = is.getTagCompound();
+                                if (data != null) {
                                     data.removeTag(DISPLAY_ONLY);
                                     is.setTagCompound(data);
-                                    baseContainer.setTargetStack(AEItemStack.create(is));
                                 }
+                                baseContainer.setTargetStack(AEItemStack.create(is));
                             }else{
                                 baseContainer.setTargetStack(message.stack);
                             }
@@ -149,39 +134,9 @@ public class CPacketInventoryAction implements IMessage {
                         }
                         if (sender.openContainer instanceof final ContainerCraftAmount cca) {
                             if (baseContainer.getTargetStack() != null) {
-                                cca.getCraftingItem().putStack(baseContainer.getTargetStack().getItemStack());
                                 cca.setItemToCraft(baseContainer.getTargetStack());
                             }
                             cca.detectAndSendChanges();
-                        }
-                    }
-                } else if (message.action == InventoryAction.SET_PATTERN_VALUE) {
-                    final ContainerOpenContext context = baseContainer.getOpenContext();
-                    if (context != null && message.stack != null) {
-                        final TileEntity te = context.getTile();
-                        if (te != null) {
-                            InventoryHandler.openGui(
-                                    sender,
-                                    te.getWorldObj(),
-                                    new BlockPos(te),
-                                    Objects.requireNonNull(baseContainer.getOpenContext().getSide()),
-                                    GuiType.PATTERN_VALUE_SET);
-                        }else{
-                            InventoryHandler.openGui(
-                                sender,
-                                sender.getEntityWorld(),
-                                new BlockPos(((IInventorySlotAware)target).getInventorySlot(),0,0),
-                                Objects.requireNonNull(baseContainer.getOpenContext().getSide()),
-                                GuiType.PATTERN_VALUE_SET_ITEM);
-                        }
-                        int amt = (int) message.stack.getStackSize();
-                        AE2Thing.proxy.netHandler.sendTo(new SPacketSetItemAmount(amt), sender);
-                        if (sender.openContainer instanceof final ContainerPatternValueAmount cpv) {
-                            if (baseContainer.getTargetStack() != null) {
-                                cpv.setValueIndex(message.slot);
-                                cpv.getPatternValue().putStack(baseContainer.getTargetStack().getItemStack());
-                            }
-                            cpv.detectAndSendChanges();
                         }
                     }
                 } else {

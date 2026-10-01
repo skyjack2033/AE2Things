@@ -8,23 +8,23 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-import ru.timeconqueror.tcneiadditions.nei.AspectCombinationHandler;
-import ru.timeconqueror.tcneiadditions.nei.TCNACrucibleRecipeHandler;
-import ru.timeconqueror.tcneiadditions.nei.TCNAInfusionRecipeHandler;
-import ru.timeconqueror.tcneiadditions.nei.arcaneworkbench.ArcaneCraftingShapedHandler;
-import ru.timeconqueror.tcneiadditions.nei.arcaneworkbench.ArcaneCraftingShapelessHandler;
+import com.gtnewhorizons.aspectrecipeindex.nei.AlchemyRecipeHandler;
+import com.gtnewhorizons.aspectrecipeindex.nei.AspectCombinationHandler;
+import com.gtnewhorizons.aspectrecipeindex.nei.InfusionRecipeHandler;
+import com.gtnewhorizons.aspectrecipeindex.nei.arcaneworkbench.ShapedArcaneRecipeHandler;
+import com.gtnewhorizons.aspectrecipeindex.nei.arcaneworkbench.ShapelessArcaneRecipeHandler;
 
 @Mixin(
-    value = { AspectCombinationHandler.class, ArcaneCraftingShapedHandler.class, ArcaneCraftingShapelessHandler.class,
-        TCNACrucibleRecipeHandler.class, TCNAInfusionRecipeHandler.class })
+    value = { AspectCombinationHandler.class, ShapedArcaneRecipeHandler.class, ShapelessArcaneRecipeHandler.class,
+        AlchemyRecipeHandler.class, InfusionRecipeHandler.class })
 public class MixinTemplateRecipeHandler {
 
-    @ModifyVariable(method = "loadCraftingRecipes*", at = @At("HEAD"), remap = false, ordinal = 0, argsOnly = true)
+    @ModifyVariable(method = "loadCraftingRecipes*", at = @At("HEAD"), remap = false, argsOnly = true, name = "result")
     public ItemStack ae2thing$loadCraftingRecipes(ItemStack ingredient) {
         return itemPhial2ItemAspect(ingredient);
     }
 
-    @ModifyVariable(method = "loadUsageRecipes", at = @At("HEAD"), remap = false, ordinal = 0, argsOnly = true)
+    @ModifyVariable(method = "loadUsageRecipes*", at = @At("HEAD"), remap = false, argsOnly = true, name = "ingredient")
     public ItemStack ae2thing$loadUsageRecipes(ItemStack ingredient) {
         return itemPhial2ItemAspect(ingredient);
     }

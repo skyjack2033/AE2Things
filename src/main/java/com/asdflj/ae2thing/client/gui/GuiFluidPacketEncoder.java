@@ -27,7 +27,7 @@ import appeng.core.AEConfig;
 import appeng.core.localization.GuiColors;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
-import appeng.core.sync.packets.PacketNEIDragClick;
+import appeng.core.sync.packets.PacketClickOrDragFakeSlot;
 import appeng.util.calculators.ArithHelper;
 import appeng.util.calculators.Calculator;
 import codechicken.nei.VisiblityData;
@@ -101,22 +101,21 @@ public class GuiFluidPacketEncoder extends AEBaseGui implements INEIGuiHandler {
             getGuiDisplayName(I18n.format(NameConst.GUI_FLUID_PACKET_ENCODER)),
             8,
             6,
-            GuiColors.UpgradableTitle.getColor());
+            BaseMEGui.DEFAULT_TEXT_COLOR);
         this.fontRendererObj
-            .drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, GuiColors.UpgradableInventory.getColor());
+            .drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, BaseMEGui.DEFAULT_TEXT_COLOR);
         this.level.drawTextBox();
         if (isShiftKeyDown() && !isMul) {
-            for (Object btn : this.buttonList) {
-                if (btn instanceof GuiButton && btn != submit) {
-                    ((GuiButton) btn).displayString += "000";
+            for (GuiButton btn : this.buttonList) {
+                if (btn != submit) {
+                    btn.displayString += "000";
                 }
             }
             isMul = true;
         } else if (!isShiftKeyDown() && isMul) {
-            for (Object btn : this.buttonList) {
-                if (btn instanceof GuiButton && btn != submit) {
-                    ((GuiButton) btn).displayString = ((GuiButton) btn).displayString
-                        .substring(0, ((GuiButton) btn).displayString.lastIndexOf("000"));
+            for (GuiButton btn : this.buttonList) {
+                if (btn != submit) {
+                    btn.displayString = btn.displayString.substring(0, btn.displayString.lastIndexOf("000"));
                 }
             }
             isMul = false;
@@ -223,7 +222,8 @@ public class GuiFluidPacketEncoder extends AEBaseGui implements INEIGuiHandler {
             SlotFake slot = cvb.getConfigSlot();
             if (getSlotArea(slot).contains(mouseX, mouseY)) {
                 slot.putStack(draggedStack);
-                NetworkHandler.instance.sendToServer(new PacketNEIDragClick(draggedStack, slot.getSlotIndex()));
+                NetworkHandler.instance
+                    .sendToServer(new PacketClickOrDragFakeSlot(draggedStack, slot.getSlotIndex(), false));
                 return true;
             }
 

@@ -28,13 +28,13 @@ import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
 import com.asdflj.ae2thing.client.gui.container.widget.IWidgetPatternContainer;
 import com.asdflj.ae2thing.client.gui.container.widget.PatternContainer;
 import com.asdflj.ae2thing.common.item.ItemPatternModifier;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.item.INetworkTerminal;
 import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.Ae2Reflect;
 import com.asdflj.ae2thing.util.GTUtil;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.glodblock.github.common.item.ItemFluidPacket;
 import com.glodblock.github.util.Util;
 
@@ -44,8 +44,8 @@ import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.energy.IEnergyGrid;
-import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.storage.IStorageGrid;
+import appeng.api.parts.IInterfaceTerminal;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.util.IConfigurableObject;
 import appeng.api.util.IInterfaceViewable;
@@ -100,7 +100,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     public ContainerWirelessDualInterfaceTerminal(InventoryPlayer ip, ITerminalHost monitorable) {
         super(ip, monitorable);
         this.patternPanel = new PatternContainer(ip, monitorable, this);
-        this.delegateContainer = new ContainerInterfaceTerminal(ip, (IActionHost) monitorable);
+        this.delegateContainer = new ContainerInterfaceTerminal(ip, (IInterfaceTerminal) monitorable);
         this.it = (IPatternTerminal) monitorable;
         this.setMonitor();
         this.lockSlot();
@@ -131,7 +131,6 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
                     } else {
                         this.monitor.addListener();
                         this.fluidMonitor.addListener();
-                        this.setCellInventory(this.monitor.getMonitor());
                     }
                 }
             } else {
@@ -194,7 +193,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
                         super.doAction(player, InventoryAction.MOVE_REGION, slotId, id);
                         return;
                     }
-                    if (action == InventoryAction.PICKUP_SINGLE) {
+                    if (action == InventoryAction.PLACE_SINGLE) {
                         super.doAction(player, InventoryAction.PICKUP_OR_SET_DOWN, slotId, id);
                         return;
                     }
@@ -282,18 +281,23 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     private ImmutablePair<World, IInterfaceViewable> getWorldAndHost(NBTTagCompound tag) {
         Util.DimensionalCoordSide intMsg = Util.DimensionalCoordSide.readFromNBT(tag);
         World w = DimensionManager.getWorld(intMsg.getDimension());
+        if (w == null) return null;
         TileEntity tile = w.getTileEntity(intMsg.x, intMsg.y, intMsg.z);
         IInterfaceViewable host;
         if (tile instanceof TileCableBus) {
-            host = (IInterfaceViewable) ((TileCableBus) tile).getPart(intMsg.getSide());
+            Object part = ((TileCableBus) tile).getPart(intMsg.getSide());
+            if (!(part instanceof IInterfaceViewable viewable)) return null;
+            host = viewable;
         } else if (tile instanceof IInterfaceViewable iv) {
             host = iv;
-        } else if ((ModAndClassUtil.GT5 || ModAndClassUtil.GT5NH)) {
+        } else if ((Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded())) {
             host = GTUtil.getIInterfaceViewable(tile);
             if (host == null) return null;
         } else {
             return null;
         }
+        if (!Ae2Reflect.getTracked(this.delegateContainer)
+            .containsKey(host)) return null;
         return ImmutablePair.of(w, host);
     }
 
@@ -361,9 +365,10 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
 
     public void setStick(NBTTagCompound tag) {
         Util.DimensionalCoordSide c = Util.DimensionalCoordSide.readFromNBT(tag);
-        World w = DimensionManager.getWorld(c.getDimension());
-        if (ModAndClassUtil.GT5 || ModAndClassUtil.GT5NH) {
-            GTUtil.setDataStick(c.x, c.y, c.z, this.player, w);
+        ImmutablePair<World, IInterfaceViewable> result = getWorldAndHost(tag);
+        if (result == null) return;
+        if (Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded()) {
+            GTUtil.setDataStick(c.x, c.y, c.z, this.player, result.left);
         }
     }
 
@@ -452,6 +457,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
 
     private void injectPatternToPatternModifier(IInterfaceViewable host, int slot, boolean shift) {
         IInventory patterns = host.getPatterns();
+        if (!shift && ((slot < 0) || (slot >= patterns.getSizeInventory()))) return;
         PatternModifierInventory patternModifierInventory = new PatternModifierInventory(
             this.player.inventory.getItemStack(),
             -1,
@@ -476,8 +482,9 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     public void PlacePattern(int slot, NBTTagCompound tag) {
         ImmutablePair<World, IInterfaceViewable> result = getWorldAndHost(tag);
         if (result == null) return;
-        ItemStack item = result.right.getPatterns()
-            .getStackInSlot(slot);
+        IInventory patterns = result.right.getPatterns();
+        if ((slot < 0) || (slot >= patterns.getSizeInventory())) return;
+        ItemStack item = patterns.getStackInSlot(slot);
         if (item != null) return;
         if (!this.getContainer()
             .getPatternOutputSlot()
@@ -485,16 +492,13 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         ItemStack pattern = this.getContainer()
             .getPatternOutputSlot()
             .getStack();
-        for (int i = 0; i < result.right.getPatterns()
-            .getSizeInventory(); i++) {
-            ItemStack slotStack = result.right.getPatterns()
-                .getStackInSlot(i);
+        for (int i = 0; i < patterns.getSizeInventory(); i++) {
+            ItemStack slotStack = patterns.getStackInSlot(i);
             if (StackInfo.equalItemAndNBT(slotStack, pattern, true)) {
                 return;
             }
         }
-        result.right.getPatterns()
-            .setInventorySlotContents(slot, pattern);
+        patterns.setInventorySlotContents(slot, pattern);
         this.getContainer()
             .getPatternOutputSlot()
             .putStack(null);

@@ -6,13 +6,28 @@ import com.asdflj.ae2thing.client.me.AdvItemRepo;
 
 import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.client.gui.widgets.ISortSource;
 
 public interface IGuiMonitor extends ISortSource {
 
-    void postFluidUpdate(List<IAEFluidStack> list);
+    /**
+     * @deprecated use {@link #postStackUpdate(List)}
+     */
+    @Deprecated
+    default void postFluidUpdate(List<IAEFluidStack> list) {
+        postStackUpdate(list);
+    }
 
-    void postUpdate(List<IAEItemStack> list);
+    /**
+     * @deprecated use {@link #postStackUpdate(List)}
+     */
+    @Deprecated
+    default void postUpdate(List<IAEItemStack> list) {
+        postStackUpdate(list);
+    }
+
+    void postStackUpdate(List<? extends IAEStack<?>> list);
 
     void setScrollBar();
 

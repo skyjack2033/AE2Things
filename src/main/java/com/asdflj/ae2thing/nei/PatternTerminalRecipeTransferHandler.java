@@ -17,12 +17,12 @@ import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.api.Constants;
 import com.asdflj.ae2thing.client.gui.GuiInfusionPatternTerminal;
 import com.asdflj.ae2thing.client.gui.GuiWirelessDualInterfaceTerminal;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.nei.object.OrderStack;
 import com.asdflj.ae2thing.nei.recipes.FluidRecipe;
 import com.asdflj.ae2thing.network.CPacketTransferRecipe;
 import com.asdflj.ae2thing.proxy.ClientProxy;
 import com.asdflj.ae2thing.util.GTUtil;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.PHUtil;
 
 import appeng.api.AEApi;
@@ -104,21 +104,19 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
         } else if (firstGui instanceof GuiWirelessDualInterfaceTerminal) {
             boolean priority = ((GuiWirelessDualInterfaceTerminal) firstGui).container.prioritize;
             boolean craft = shouldCraft(recipe);
-            List<com.glodblock.github.nei.object.OrderStack<?>> in;
-            in = com.glodblock.github.nei.recipes.FluidRecipe.getPackageInputs(recipe, recipeIndex, !craft && priority);
+            List<OrderStack<?>> in;
+            in = FluidRecipe.getPackageInputs(recipe, recipeIndex, !craft && priority);
             setSuggestion(craft, recipe, (GuiWirelessDualInterfaceTerminal) firstGui, in);
-            if (ModAndClassUtil.PH && !craft) {
+            if (Mods.PROGRAMMABLE_HATCHES.isModLoaded() && !craft) {
                 in = PHUtil.transfer(in);
             }
-            List<com.glodblock.github.nei.object.OrderStack<?>> out = com.glodblock.github.nei.recipes.FluidRecipe
-                .getPackageOutputs(recipe, recipeIndex, !notUseOther(recipe));
-            AE2Thing.proxy.netHandler
-                .sendToServer(new CPacketTransferRecipe(transfer(in), transfer(out), craft, shift));
+            List<OrderStack<?>> out = FluidRecipe.getPackageOutputs(recipe, recipeIndex, !notUseOther(recipe));
+            AE2Thing.proxy.netHandler.sendToServer(new CPacketTransferRecipe(in, out, craft, shift));
         }
     }
 
     private void setSuggestion(boolean craft, IRecipeHandler recipe, GuiWirelessDualInterfaceTerminal gui,
-        List<com.glodblock.github.nei.object.OrderStack<?>> in) {
+        List<OrderStack<?>> in) {
         String suggestion;
         if (craft) {
             com.google.common.base.Optional<ItemStack> molecular = AEApi.instance()
@@ -131,7 +129,7 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
             } else {
                 suggestion = "";
             }
-        } else if (ModAndClassUtil.GT5NH || ModAndClassUtil.GT5) {
+        } else if (Mods.isGt5UnofficialLoaded() || Mods.isLegacyGt5Loaded()) {
             suggestion = GTUtil.getRecipeName(recipe, in);
         } else {
             suggestion = recipe.getRecipeName();
@@ -147,14 +145,6 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
     private boolean notUseOther(IRecipeHandler recipeHandler) {
         TemplateRecipeHandler tRecipe = (TemplateRecipeHandler) recipeHandler;
         return notOtherSet.contains(tRecipe.getOverlayIdentifier());
-    }
-
-    private static List<OrderStack<?>> transfer(List<com.glodblock.github.nei.object.OrderStack<?>> input) {
-        List<OrderStack<?>> out = new ArrayList<>();
-        for (com.glodblock.github.nei.object.OrderStack<?> stack : input) {
-            out.add(new OrderStack<>(stack.getStack(), stack.getIndex()));
-        }
-        return out;
     }
 
     private boolean shouldCraft(IRecipeHandler recipeHandler) {

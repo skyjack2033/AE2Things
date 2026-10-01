@@ -13,6 +13,7 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 import com.asdflj.ae2thing.AE2Thing;
+import com.asdflj.ae2thing.client.gui.BaseMEGui;
 import com.asdflj.ae2thing.client.gui.IInfoTerminal;
 import com.asdflj.ae2thing.client.me.IDisplayRepo;
 import com.asdflj.ae2thing.util.Info;
@@ -196,22 +197,22 @@ public class Component implements IClickable {
             this.unbind.visible = false;
             this.bind.visible = false;
         }
-        this.render.drawString(this.getName(info), x, y, 4210752);
+        this.render.drawString(this.getName(info), x, y, BaseMEGui.DEFAULT_TEXT_COLOR);
         this.render.drawString(
             I18n.format(NameConst.GUI_WIRELESS_CONNECTOR_TERMINAL_COLOR) + ": " + info.getColor(),
             x,
             y + 10,
-            4210752);
+            BaseMEGui.DEFAULT_TEXT_COLOR);
         this.render.drawString(
             I18n.format(NameConst.GUI_WIRELESS_CONNECTOR_TERMINAL_POS) + ": " + info.getPosString(),
             x,
             y + 10 * 2,
-            4210752);
+            BaseMEGui.DEFAULT_TEXT_COLOR);
         this.render.drawString(
             I18n.format(NameConst.GUI_WIRELESS_CONNECTOR_TERMINAL_CHANNELS_USED) + ": " + info.getChannelsUsed(),
             x,
             y + 10 * 3,
-            4210752);
+            BaseMEGui.DEFAULT_TEXT_COLOR);
         drawWirelessConnector(info);
         this.drawSelection(mouse);
     }

@@ -9,13 +9,13 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.common.tabs.AE2ThingTabs;
+import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.inventory.item.IItemInventory;
 import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
 import com.asdflj.ae2thing.util.BlockPos;
 import com.asdflj.ae2thing.util.GTUtil;
-import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.NameConst;
 
 import appeng.api.parts.IPart;
@@ -63,7 +63,7 @@ public class ItemPatternModifier extends BaseItem implements IItemInventory {
             IInterfaceViewable host;
             if (te instanceof IInterfaceViewable h) {
                 host = h;
-            } else if (ModAndClassUtil.GT5 || ModAndClassUtil.GT5NH) {
+            } else if (Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded()) {
                 host = GTUtil.getIInterfaceViewable(te);
             } else if (te instanceof TileCableBus bus) {
                 Vec3 vec = Vec3.createVectorHelper(hitX, hitY, hitZ);

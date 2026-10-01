@@ -13,18 +13,15 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
-import net.minecraftforge.fluids.FluidStack;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.common.tabs.AE2ThingTabs;
 import com.asdflj.ae2thing.loader.IRegister;
 import com.asdflj.ae2thing.loader.ItemAndBlockHolder;
+import com.asdflj.ae2thing.util.AspectUtil;
 import com.asdflj.ae2thing.util.NameConst;
-import com.glodblock.github.crossmod.thaumcraft.AspectUtil;
 
-import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
-import appeng.util.item.AEFluidStack;
 import appeng.util.item.AEItemStack;
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
@@ -32,7 +29,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 import thaumcraft.api.aspects.Aspect;
 import thaumcraft.api.aspects.AspectList;
 import thaumcraft.common.items.ItemEssence;
-import thaumicenergistics.common.fluids.GaseousEssentia;
+import thaumicenergistics.common.storage.AEEssentiaStack;
 
 public class ItemPhial extends ItemEssence implements IRegister<ItemPhial> {
 
@@ -74,40 +71,47 @@ public class ItemPhial extends ItemEssence implements IRegister<ItemPhial> {
         return list;
     }
 
-    public static IAEFluidStack getAeEssentiaStack(IAEItemStack item) {
+    public static AEEssentiaStack getAeEssentiaStack(IAEItemStack item) {
         Aspect aspect = getAspect(item);
         if (aspect == null) return null;
         return newEssentiaStack(aspect, item.getStackSize());
-    }
-
-    public static FluidStack getEssentiaStack(ItemStack item) {
-        Aspect aspect = getAspect(item);
-        if (aspect == null) return null;
-        return newEssentiaStack(aspect, item.stackSize).getFluidStack();
     }
 
     public static Aspect getAspect(IAEItemStack item) {
         return getAspect(item.getItemStack());
     }
 
-    public static IAEFluidStack newEssentiaStack(Aspect aspect, long size) {
-        FluidStack fs = new FluidStack(GaseousEssentia.getGasFromAspect(aspect), 1);
-        IAEFluidStack ifs = AEFluidStack.create(fs);
-        ifs.setStackSize(size * AspectUtil.R);
-        return ifs;
+    public static AEEssentiaStack newEssentiaStack(Aspect aspect, long size) {
+        return new AEEssentiaStack(aspect, size * AspectUtil.ESSENTIA_PER_ITEM);
     }
 
     @Nullable
-    public static IAEItemStack newAeStack(@Nullable IAEFluidStack fluid) {
-        if (fluid != null && fluid.getStackSize() >= 0 && fluid.getFluid() instanceof GaseousEssentia) {
-            ItemStack phial = new ItemStack(ItemAndBlockHolder.PHIAL, 1, 1);
-            Aspect aspect = AspectUtil.getAspectFromGas(fluid.getFluidStack());
-            ItemPhial.setAspects(phial, aspect);
-            IAEItemStack item = AEItemStack.create(phial);
-            item.setStackSize(fluid.getStackSize() / AspectUtil.R);
-            return item;
-        }
-        return null;
+    public static IAEItemStack newAeStack(@Nullable AEEssentiaStack essentia) {
+        if ((essentia == null) || (essentia.getAspect() == null) || (essentia.getStackSize() < 0)) return null;
+        return newAeStack(essentia.getAspect(), essentia.getStackSize() / AspectUtil.ESSENTIA_PER_ITEM);
+    }
+
+    /**
+     * Converts an essentia monitor delta to the corresponding phial facade delta. The monitor's current amount is the
+     * amount after the change; comparing the converted totals on both sides of the change preserves updates that cross
+     * an item-unit boundary even when the raw delta itself is smaller than {@link AspectUtil#ESSENTIA_PER_ITEM}.
+     */
+    @Nullable
+    public static IAEItemStack newAeDeltaStack(@Nullable AEEssentiaStack current, @Nullable AEEssentiaStack change) {
+        if ((change == null) || (change.getAspect() == null)) return null;
+
+        long currentAmount = current == null ? 0 : current.getStackSize();
+        long itemDelta = PhialAmountConverter
+            .calculateItemDelta(currentAmount, change.getStackSize(), AspectUtil.ESSENTIA_PER_ITEM);
+        return itemDelta == 0 ? null : newAeStack(change.getAspect(), itemDelta);
+    }
+
+    private static IAEItemStack newAeStack(Aspect aspect, long size) {
+        ItemStack phial = new ItemStack(ItemAndBlockHolder.PHIAL, 1, 1);
+        ItemPhial.setAspects(phial, aspect);
+        IAEItemStack item = AEItemStack.create(phial);
+        item.setStackSize(size);
+        return item;
     }
 
     public static ItemStack newStack(Aspect aspect, int size) {
