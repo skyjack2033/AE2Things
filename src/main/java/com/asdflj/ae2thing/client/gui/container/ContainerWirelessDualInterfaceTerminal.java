@@ -1,9 +1,6 @@
 package com.asdflj.ae2thing.client.gui.container;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -14,9 +11,9 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.util.Constants.NBT;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidContainerRegistry;
 import net.minecraftforge.fluids.FluidStack;
@@ -35,9 +32,14 @@ import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.Ae2Reflect;
 import com.asdflj.ae2thing.util.GTUtil;
+import com.asdflj.ae2thing.util.InterfaceTerminalTarget;
+import com.asdflj.ae2thing.util.PatternUpload;
 import com.glodblock.github.common.item.ItemFluidPacket;
 import com.glodblock.github.util.Util;
 
+import appeng.api.config.SecurityPermissions;
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
@@ -59,14 +61,14 @@ import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInterfaceTerminalUpdate;
 import appeng.helpers.IContainerCraftingPacket;
+import appeng.helpers.IInterfaceHost;
 import appeng.helpers.InventoryAction;
 import appeng.me.cache.CraftingGridCache;
 import appeng.me.helpers.ChannelPowerSrc;
+import appeng.parts.p2p.PartP2PTunnel;
 import appeng.tile.inventory.InvOperation;
-import appeng.tile.networking.TileCableBus;
 import appeng.util.PatternMultiplierHelper;
 import appeng.util.Platform;
-import codechicken.nei.recipe.StackInfo;
 
 public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     implements IContainerCraftingPacket, IWidgetPatternContainer, IConfigurableObject {
@@ -183,7 +185,9 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     @Override
     public void doAction(final EntityPlayerMP player, final InventoryAction action, final int slotId, final long id) {
         try {
-            if (id >= 0) {
+            // Programmable Hatch covers use the sign bit in otherwise valid native tracker IDs.
+            if (id != -1 && id != -2) {
+                if (!canEditInterfaces()) return;
                 delegateContainer.doAction(player, action, slotId, id);
             } else if (id == -1) {
                 Slot s = this.inventorySlots.get(slotId);
@@ -279,26 +283,35 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     }
 
     private ImmutablePair<World, IInterfaceViewable> getWorldAndHost(NBTTagCompound tag) {
-        Util.DimensionalCoordSide intMsg = Util.DimensionalCoordSide.readFromNBT(tag);
-        World w = DimensionManager.getWorld(intMsg.getDimension());
-        if (w == null) return null;
-        TileEntity tile = w.getTileEntity(intMsg.x, intMsg.y, intMsg.z);
-        IInterfaceViewable host;
-        if (tile instanceof TileCableBus) {
-            Object part = ((TileCableBus) tile).getPart(intMsg.getSide());
-            if (!(part instanceof IInterfaceViewable viewable)) return null;
-            host = viewable;
-        } else if (tile instanceof IInterfaceViewable iv) {
-            host = iv;
-        } else if ((Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded())) {
-            host = GTUtil.getIInterfaceViewable(tile);
-            if (host == null) return null;
-        } else {
-            return null;
-        }
-        if (!Ae2Reflect.getTracked(this.delegateContainer)
-            .containsKey(host)) return null;
+        if (!canEditInterfaces()) return null;
+        this.delegateContainer.scheduleUpdate();
+        this.delegateContainer.detectAndSendChanges();
+        IInterfaceViewable host = InterfaceTerminalTarget.resolve(Ae2Reflect.getTracked(this.delegateContainer), tag);
+        if (host == null || !isVisibleInterface(host)) return null;
+        ForgeDirection side = Util.DimensionalCoordSide.readFromNBT(tag)
+            .getSide();
+        IGridNode node = host.getGridNode(side);
+        if (node == null) node = host.getGridNode(ForgeDirection.UNKNOWN);
+        if (node == null || !node.isActive()) return null;
+        World w = DimensionManager.getWorld(
+            host.getLocation()
+                .getDimension());
+        if (w == null || !w.blockExists(host.getLocation().x, host.getLocation().y, host.getLocation().z)) return null;
         return ImmutablePair.of(w, host);
+    }
+
+    private boolean canEditInterfaces() {
+        IGridNode node = ((IInterfaceTerminal) this.it).getActionableNode();
+        return this.isValidContainer() && node != null
+            && node.isActive()
+            && this.hasAccess(SecurityPermissions.BUILD, true);
+    }
+
+    private static boolean isVisibleInterface(IInterfaceViewable host) {
+        if (host instanceof PartP2PTunnel<?>tunnel && tunnel.isOutput()) return false;
+        return host instanceof IInterfaceHost interfaceHost ? interfaceHost.getInterfaceDuality()
+            .getConfigManager()
+            .getSetting(Settings.INTERFACE_TERMINAL) == YesNo.YES : host.shouldDisplay();
     }
 
     private void doublePatterns(int val, World w, IInterfaceViewable host) {
@@ -329,33 +342,27 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     }
 
     private void sendToClient(IInterfaceViewable host) {
-        PacketInterfaceTerminalUpdate update = new PacketInterfaceTerminalUpdate();
-        Map map = Ae2Reflect.getTracked(this.delegateContainer);
-        Object o = map.get(host);
-        if (o == null) return;
+        Long id = InterfaceTerminalTarget.getId(Ae2Reflect.getTracked(this.delegateContainer), host);
+        if (id == null) return;
         try {
-            Field f = o.getClass()
-                .getDeclaredField("id");
-            f.setAccessible(true);
-            long id = (long) f.get(o);
-            Method m = o.getClass()
-                .getDeclaredMethod("updateNBT");
-            m.setAccessible(true);
-            m.invoke(o);
-            Field f1 = o.getClass()
-                .getDeclaredField("invNbt");
-            f1.setAccessible(true);
-            NBTTagList tag = (NBTTagList) f1.get(o);
-            int[] size = new int[host.rowSize() * host.rows()];
-            for (int i = 0; i < size.length; i++) {
-                size[i] = i;
+            IInventory patterns = host.getPatterns();
+            int slots = Math.min(host.numSlots(), patterns.getSizeInventory());
+            NBTTagList items = new NBTTagList();
+            for (int i = 0; i < slots; i++) {
+                ItemStack stack = patterns.getStackInSlot(i);
+                NBTTagCompound item = new NBTTagCompound();
+                if (stack != null) stack.writeToNBT(item);
+                items.appendTag(item);
             }
+            PacketInterfaceTerminalUpdate update = new PacketInterfaceTerminalUpdate();
             update.addOverwriteEntry(id)
-                .setOnline(true)
-                .setItems(size, tag);
+                .setSize(host.rows(), host.rowSize(), slots)
+                .setItems(new int[0], items);
             update.encode();
             NetworkHandler.instance.sendTo(update, (EntityPlayerMP) this.getPlayerInv().player);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            AELog.error(e);
+        }
     }
 
     @Override
@@ -482,26 +489,28 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     public void PlacePattern(int slot, NBTTagCompound tag) {
         ImmutablePair<World, IInterfaceViewable> result = getWorldAndHost(tag);
         if (result == null) return;
-        IInventory patterns = result.right.getPatterns();
-        if ((slot < 0) || (slot >= patterns.getSizeInventory())) return;
-        ItemStack item = patterns.getStackInSlot(slot);
-        if (item != null) return;
-        if (!this.getContainer()
-            .getPatternOutputSlot()
-            .getHasStack()) return;
-        ItemStack pattern = this.getContainer()
-            .getPatternOutputSlot()
-            .getStack();
-        for (int i = 0; i < patterns.getSizeInventory(); i++) {
-            ItemStack slotStack = patterns.getStackInSlot(i);
-            if (StackInfo.equalItemAndNBT(slotStack, pattern, true)) {
-                return;
-            }
+        placePattern(slot, result.right);
+        this.saveChanges();
+        this.detectAndSendChanges();
+    }
+
+    public void encodeAndPlacePattern(int slot, NBTTagCompound tag) {
+        if (tag == null || !tag.hasKey("windowId", NBT.TAG_INT)
+            || tag.getInteger("windowId") != this.windowId
+            || !canEditInterfaces()) return;
+        ImmutablePair<World, IInterfaceViewable> result = getWorldAndHost(tag);
+        // If the selected hatch disappeared, still leave the newly encoded pattern in the terminal.
+        if (this.patternPanel.encodeForUpload() && result != null) {
+            placePattern(slot, result.right);
         }
-        patterns.setInventorySlotContents(slot, pattern);
-        this.getContainer()
-            .getPatternOutputSlot()
-            .putStack(null);
-        this.sendToClient(result.right);
+        this.saveChanges();
+        this.detectAndSendChanges();
+    }
+
+    private void placePattern(int slot, IInterfaceViewable host) {
+        Slot output = this.patternPanel.getPatternOutputSlot();
+        PatternUpload.moveToSlot(output.inventory, output.getSlotIndex(), host.getPatterns(), slot, host.numSlots());
+        // Also refresh after a rejected upload, e.g. when another player filled the selected slot.
+        this.sendToClient(host);
     }
 }

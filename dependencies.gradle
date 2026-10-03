@@ -10,7 +10,7 @@ dependencies {
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:ae2stuff:0.10.19-GTNH:dev")
 
     compileOnlyApi("com.github.GTNewHorizons:waila:1.19.34:dev")
-    runtimeOnlyNonPublishable("com.github.GTNewHorizons:waila:1.19.30:dev")
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:waila:1.19.34:dev")
     compileOnlyApi("com.github.GTNewHorizons:WirelessCraftingTerminal:1.12.16:dev")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:WirelessCraftingTerminal:1.12.16:dev")
     compileOnlyApi("com.github.GTNewHorizons:FindIt:1.4.6:dev")
@@ -42,7 +42,7 @@ dependencies {
     compileOnlyApi("com.github.GTNewHorizons:nei-custom-diagram:1.8.34:dev") { transitive = false }
 
     compileOnlyApi("com.github.GTNewHorizons:Baubles-Expanded:2.2.22-GTNH:dev")
-    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Baubles-Expanded:2.2.21-GTNH:dev")
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Baubles-Expanded:2.2.22-GTNH:dev")
     compileOnlyApi("com.github.GTNewHorizons:Hodgepodge:2.7.196:dev") { transitive = false }
     compileOnlyApi("com.github.GTNewHorizons:BetterP2P:1.4.7:dev")
     compileOnlyApi("com.github.GTNewHorizons:Angelica:2.2.10:dev")

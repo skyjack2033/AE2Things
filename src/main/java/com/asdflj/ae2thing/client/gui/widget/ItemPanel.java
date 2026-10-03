@@ -29,6 +29,7 @@ import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.network.CPacketInventoryAction;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.AspectUtil;
+import com.asdflj.ae2thing.util.TerminalViewMode;
 import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.config.SearchBoxMode;
@@ -379,7 +380,7 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
             final boolean backwards = Mouse.isButtonDown(1);
             if (iBtn.getSetting() != Settings.ACTIONS) {
                 final Enum<?> cv = iBtn.getCurrentValue();
-                final Enum<?> next = Platform.rotateEnum(cv, backwards, iBtn.getSetting().getPossibleValues());
+                final Enum<?> next = Platform.rotateEnum(cv, backwards, TerminalViewMode.getPossibleValues(iBtn.getSetting()));
                 if (btn == this.searchBoxSettings) {
                     AEConfig.instance.settings.putSetting(iBtn.getSetting(), next);
                 } else if (btn == this.SortByBox || btn == this.SortDirBox || btn == this.ViewBox) {

@@ -15,6 +15,7 @@ import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.ItemBiggerAppEngInventory;
 import com.asdflj.ae2thing.inventory.ItemPatternRefillInventory;
 import com.asdflj.ae2thing.inventory.ItemPatternsInventory;
+import com.asdflj.ae2thing.util.TerminalTypeFilters;
 import com.asdflj.ae2thing.util.Util;
 import com.glodblock.github.common.item.ItemFluidDrop;
 import com.glodblock.github.common.item.ItemFluidPacket;
@@ -37,7 +38,6 @@ import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.tile.inventory.IAEAppEngInventory;
 import appeng.tile.inventory.InvOperation;
 import appeng.util.ConfigManager;
-import appeng.util.MonitorableTypeFilter;
 import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
 
@@ -57,7 +57,7 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     protected boolean beSubstitute = false;
     protected int activePage = 0;
     private Util.DimensionalCoordSide tile;
-    private final MonitorableTypeFilter typeFilters = new MonitorableTypeFilter();
+    private final TerminalTypeFilters typeFilters = new TerminalTypeFilters();
 
     public WirelessDualInterfaceTerminalInventory(WirelessObject obj) {
         super(obj);
@@ -414,7 +414,8 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
 
     @Override
     public Reference2BooleanMap<IAEStackType<?>> getTypeFilter(EntityPlayer player) {
-        return this.typeFilters.getFilters(player);
+        return this.typeFilters.getFilters(player)
+            .getFiltersMap();
     }
 
     @Override

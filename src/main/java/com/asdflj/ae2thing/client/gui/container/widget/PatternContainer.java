@@ -451,31 +451,28 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
     }
 
     public void encodeItemPattern() {
+        encodeItemPatternWithResult();
+    }
+
+    private boolean encodeItemPatternWithResult() {
         ItemStack output = this.patternSlotOUT.getStack();
         final ItemStack[] in = this.getInputs();
         final ItemStack[] out = this.getOutputs();
 
         // if there is no input, this would be silly.
         if (in == null || out == null) {
-            return;
+            return false;
         }
         // first check the output slots, should either be null, or a pattern
         if (output != null && this.notPattern(output)) {
-            return;
-        } // if nothing is there we should snag a new pattern.
-        else if (output == null) {
-            output = this.patternSlotIN.getStack();
-            if (this.notPattern(output)) {
-                return; // no blanks.
-            }
-
-            // remove one, and clear the input slot.
-            output.stackSize--;
-            if (output.stackSize == 0) {
-                this.patternSlotIN.putStack(null);
-            }
-
-            // add a new encoded pattern.
+            return false;
+        }
+        if (output == null) {
+            ItemStack blank = this.patternSlotIN.getStack();
+            if (this.notPattern(blank) || blank.stackSize <= 0) return false;
+        }
+        if (output == null || output.getItem() instanceof ItemFluidEncodedPattern) {
+            output = null;
             for (final ItemStack encodedPatternStack : AEApi.instance()
                 .definitions()
                 .items()
@@ -484,15 +481,10 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
                 .asSet()) {
                 output = encodedPatternStack;
             }
-        } else if (output.getItem() instanceof ItemFluidEncodedPattern) {
-            for (final ItemStack encodedPatternStack : AEApi.instance()
-                .definitions()
-                .items()
-                .encodedPattern()
-                .maybeStack(1)
-                .asSet()) {
-                output = encodedPatternStack;
-            }
+            if (output == null) return false;
+        } else {
+            // Building a replacement must not mutate the previous encoded output if encoding fails.
+            output = output.copy();
         }
 
         // encode the slot.
@@ -517,7 +509,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
         encodedValue.setBoolean("prioritize", this.container.prioritize);
         output.setTagCompound(encodedValue);
         stampAuthor(output);
-        this.patternSlotOUT.putStack(output);
+        return storeEncodedPattern(this.patternSlotIN, this.patternSlotOUT, output);
     }
 
     protected ItemStack stampAuthor(ItemStack patternStack) {
@@ -538,26 +530,47 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     @Override
     public void encode() {
+        encodeForUpload();
+    }
+
+    /** Returns success for this encoding attempt, independently of any output left from an earlier recipe. */
+    public boolean encodeForUpload() {
         if (this.hasRefillerUpgrade()) refillBlankPatterns(this.patternSlotIN);
         if (!checkHasFluidPattern()) {
-            encodeItemPattern();
-            return;
+            return encodeItemPatternWithResult();
         }
         ItemStack stack = this.patternSlotOUT.getStack();
         if (stack == null) {
             stack = this.patternSlotIN.getStack();
-            if (notPattern(stack)) {
-                return;
-            }
-            if (stack.stackSize == 1) {
-                this.patternSlotIN.putStack(null);
-            } else {
-                stack.stackSize--;
-            }
-            encodeFluidPattern();
-        } else if (!notPattern(stack)) {
-            encodeFluidPattern();
+            if (notPattern(stack) || stack.stackSize <= 0) return false;
+        } else if (notPattern(stack)) {
+            return false;
         }
+        return storeEncodedPattern(this.patternSlotIN, this.patternSlotOUT, createFluidPattern());
+    }
+
+    static boolean storeEncodedPattern(Slot blankSlot, Slot outputSlot, ItemStack encoded) {
+        if (encoded == null || encoded.stackSize <= 0) return false;
+        ItemStack previous = outputSlot.getStack();
+        ItemStack blanks = blankSlot.getStack();
+        if (previous == null && (blanks == null || blanks.stackSize <= 0)) return false;
+
+        outputSlot.putStack(encoded.copy());
+        if (!ItemStack.areItemStacksEqual(encoded, outputSlot.getStack())) {
+            outputSlot.putStack(previous);
+            return false;
+        }
+        if (previous == null) {
+            ItemStack remaining = blanks.stackSize == 1 ? null : blanks.copy();
+            if (remaining != null) remaining.stackSize--;
+            blankSlot.putStack(remaining == null ? null : remaining.copy());
+            if (!ItemStack.areItemStacksEqual(remaining, blankSlot.getStack())) {
+                blankSlot.putStack(blanks);
+                outputSlot.putStack(null);
+                return false;
+            }
+        }
+        return true;
     }
 
     protected static IAEItemStack[] collectInventory(Slot[] slots) {
@@ -580,12 +593,16 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
     }
 
     protected void encodeFluidPattern() {
+        patternSlotOUT.putStack(createFluidPattern());
+    }
+
+    private ItemStack createFluidPattern() {
         ItemStack patternStack = new ItemStack(ItemAndBlockHolder.PATTERN);
         FluidPatternDetails pattern = new FluidPatternDetails(patternStack);
         pattern.setInputs(collectInventory(this.craftingExSlots));
         pattern.setOutputs(collectInventory(this.outputExSlots));
         pattern.setCanBeSubstitute(this.container.beSubstitute ? 1 : 0);
-        patternSlotOUT.putStack(stampAuthor(pattern.writeToStack()));
+        return stampAuthor(pattern.writeToStack());
     }
 
     @Override

@@ -11,19 +11,20 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.init.Blocks;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.common.MinecraftForge;
+import net.minecraft.nbt.NBTTagCompound;
 
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.api.InventoryActionExtend;
-import com.asdflj.ae2thing.client.event.EncodeEvent;
+import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.IWidgetGui;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
 import com.asdflj.ae2thing.network.CPacketInventoryActionExtend;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
+import com.asdflj.ae2thing.proxy.ClientProxy;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.Util;
@@ -428,9 +429,17 @@ public class PatternPanel implements IAEBasePanel {
             return true;
         } else if (this.encodeBtn == btn) {
             int value = (isCtrlKeyDown() ? 1 : 0) << 1 | (isShiftKeyDown() ? 1 : 0);
-            AE2Thing.proxy.netHandler.sendToServer(new CPacketTerminalBtns("PatternTerminal.Encode", value));
-            if (value == 0 && NEIClientUtils.altKey()) {
-                MinecraftForge.EVENT_BUS.post(new EncodeEvent(true));
+            GuiBaseInterfaceWireless.InterfaceWirelessEntryWrapper target = ClientProxy.getInterfaceHighlightEntry();
+            if (value == 0 && NEIClientUtils.altKey()
+                && this.parent instanceof GuiBaseInterfaceWireless terminal
+                && terminal.isCurrentHighlightEntry(target)) {
+                NBTTagCompound destination = target.getDimensionalCoordSide();
+                destination.setInteger("windowId", this.container.windowId);
+                AE2Thing.proxy.netHandler.sendToServer(
+                    new CPacketTerminalBtns("InterfaceTerminal.EncodeAndPlacePattern", target.slot, destination));
+                ClientProxy.setInterfaceHighlightEntry(null);
+            } else {
+                AE2Thing.proxy.netHandler.sendToServer(new CPacketTerminalBtns("PatternTerminal.Encode", value));
             }
             return true;
         } else if (this.clearBtn == btn) {

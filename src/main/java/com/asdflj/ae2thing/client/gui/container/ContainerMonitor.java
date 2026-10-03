@@ -28,6 +28,7 @@ import com.asdflj.ae2thing.inventory.item.INetworkTerminal;
 import com.asdflj.ae2thing.network.SPacketMEItemInvUpdate;
 import com.asdflj.ae2thing.network.SPacketTypeFilter;
 import com.asdflj.ae2thing.util.HBMAeAddonUtil;
+import com.asdflj.ae2thing.util.TerminalViewMode;
 import com.glodblock.github.common.item.ItemFluidPacket;
 import com.glodblock.github.util.Util;
 
@@ -89,6 +90,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 this.networkNode = ((INetworkTerminal) monitorable).getGridNode();
             }
             this.serverCM = monitorable.getConfigManager();
+            TerminalViewMode.normalize(this.serverCM);
             this.setMonitor();
         }
     }
@@ -318,6 +320,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 this.setValidContainer(false);
             }
             if (this.serverCM != null) {
+                TerminalViewMode.normalize(this.serverCM);
                 for (final Settings set : this.serverCM.getSettings()) {
                     final Enum<?> sideLocal = this.serverCM.getSetting(set);
                     final Enum<?> sideRemote = this.clientCM.getSetting(set);
@@ -373,6 +376,10 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
 
     @Override
     public void updateSetting(IConfigManager manager, Enum settingName, Enum newValue) {
+        if (settingName == Settings.VIEW_MODE && newValue == ViewItems.FLOWING) {
+            TerminalViewMode.normalize(manager);
+            return;
+        }
         if (this.getGui() != null) {
             this.getGui()
                 .updateSetting(manager, settingName, newValue);

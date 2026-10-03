@@ -14,21 +14,23 @@ import com.asdflj.ae2thing.inventory.ThaumatoriumInventoryAdapter;
 import appeng.api.parts.IPart;
 import appeng.tile.storage.TileIOPort;
 import appeng.util.InventoryAdaptor;
+import appeng.util.Platform;
 import thaumcraft.common.tiles.TileThaumatorium;
 
 public class CoreModHooks {
 
-    public static InventoryAdaptor getAdaptor(TileEntity tile, ForgeDirection face) {
-        if (tile == null) return null;
+    public static InventoryAdaptor getAdaptor(Object target, ForgeDirection face) {
+        if (!(target instanceof TileEntity tile) || face == null) {
+            return InventoryAdaptor.getAdaptor(target, face);
+        }
         TileEntity inter = tile.getWorldObj()
             .getTileEntity(tile.xCoord + face.offsetX, tile.yCoord + face.offsetY, tile.zCoord + face.offsetZ);
         if (Mods.THAUMIC_ENERGISTICS.isModLoaded()) {
             if (inter instanceof TileInfusionInterface) {
                 return EssentiaInventoryAdaptor.getAdaptor(tile, face);
-            } else if (com.glodblock.github.util.Util
-                .getPart(inter, face.getOpposite()) instanceof PartThaumatoriumInterface) {
-                    return ThaumatoriumInventoryAdapter.getAdaptor(tile, face);
-                }
+            } else if (Platform.getPartFromTE(inter, face.getOpposite()) instanceof PartThaumatoriumInterface) {
+                return ThaumatoriumInventoryAdapter.getAdaptor(tile, face);
+            }
         }
         return InventoryAdaptor.getAdaptor(tile, face);
     }
@@ -37,7 +39,7 @@ public class CoreModHooks {
         TileEntity cable = tile.getWorldObj()
             .getTileEntity(tile.xCoord + face.offsetX, tile.yCoord + face.offsetY + y, tile.zCoord + face.offsetZ);
         if (cable == null) return;
-        IPart part = com.glodblock.github.util.Util.getPart(cable, face.getOpposite());
+        IPart part = Platform.getPartFromTE(cable, face.getOpposite());
         if (Mods.THAUMIC_ENERGISTICS.isModLoaded() && part instanceof PartThaumatoriumInterface pti) {
             int ess = pti.takeEssentia(tile.currentSuction, 1, face);
             if (ess > 0) {

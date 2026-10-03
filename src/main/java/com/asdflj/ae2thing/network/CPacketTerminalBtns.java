@@ -167,6 +167,9 @@ public class CPacketTerminalBtns implements IMessage {
                     case "InterfaceTerminal.PlacePattern" -> {
                         if (intValue != null && tag != null) ciw.PlacePattern(intValue, tag);
                     }
+                    case "InterfaceTerminal.EncodeAndPlacePattern" -> {
+                        if (intValue != null && tag != null) ciw.encodeAndPlacePattern(intValue, tag);
+                    }
                 }
 
             }

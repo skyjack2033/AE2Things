@@ -147,6 +147,7 @@ public class CPacketCraftRequest implements IMessage {
                                 cca.getActionSrc(),
                                 cca.getItemToCraft(),
                                 message.craftingMode,
+                                false,
                                 null);
                         } else {
                             futureJob = cg.beginCraftingJob(
@@ -218,6 +219,7 @@ public class CPacketCraftRequest implements IMessage {
                                 new PlayerSource(player, (IActionHost)target),
                                 message.item,
                                 message.craftingMode,
+                                false,
                                 null);
                         } else {
                             futureJob = cg.beginCraftingJob(

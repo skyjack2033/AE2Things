@@ -28,6 +28,7 @@ import com.asdflj.ae2thing.network.CPacketInventoryAction;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.AspectUtil;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
+import com.asdflj.ae2thing.util.TerminalViewMode;
 import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.config.CraftingStatus;
@@ -69,8 +70,8 @@ import appeng.helpers.MonitorableAction;
 import appeng.integration.IntegrationRegistry;
 import appeng.integration.IntegrationType;
 import appeng.integration.modules.NEI;
+import appeng.util.AEStackTypeFilter;
 import appeng.util.IConfigManagerHost;
-import appeng.util.MonitorableTypeFilter;
 import appeng.util.Platform;
 import codechicken.nei.util.TextHistory;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
@@ -111,7 +112,7 @@ public abstract class GuiMonitor extends BaseMEGui implements IConfigManagerHost
         this.setScrollBar(scrollbar);
         this.container = (ContainerMonitor) container;
         this.typeFilter = new TypeFilterWidget(container.windowId);
-        this.typeFilter.setFilters(MonitorableTypeFilter.createDefaultMap());
+        this.typeFilter.setFilters(new AEStackTypeFilter().getFiltersMap());
         this.repo = new AdvItemRepo(getScrollBar(), this);
         this.repo.setPowered(true);
     }
@@ -590,7 +591,7 @@ public abstract class GuiMonitor extends BaseMEGui implements IConfigManagerHost
             final boolean backwards = Mouse.isButtonDown(1);
             if (iBtn.getSetting() != Settings.ACTIONS) {
                 final Enum<?> cv = iBtn.getCurrentValue();
-                final Enum<?> next = Platform.rotateEnum(cv, backwards, iBtn.getSetting().getPossibleValues());
+                final Enum<?> next = Platform.rotateEnum(cv, backwards, TerminalViewMode.getPossibleValues(iBtn.getSetting()));
                 if (btn == this.terminalStyleBox) {
                     AEConfig.instance.settings.putSetting(iBtn.getSetting(), next);
                 } else if (btn == this.searchBoxSettings) {

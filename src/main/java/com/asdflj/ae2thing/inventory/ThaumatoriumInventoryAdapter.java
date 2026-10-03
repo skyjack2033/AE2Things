@@ -12,7 +12,11 @@ import com.asdflj.ae2thing.common.item.ItemPhial;
 import com.asdflj.ae2thing.common.parts.PartThaumatoriumInterface;
 
 import appeng.api.config.FuzzyMode;
+import appeng.api.config.InsertionMode;
+import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.util.InventoryAdaptor;
+import appeng.util.Platform;
 import appeng.util.inv.IInventoryDestination;
 import appeng.util.inv.ItemSlot;
 
@@ -32,7 +36,7 @@ public class ThaumatoriumInventoryAdapter extends InventoryAdaptor {
         if (ad == null) return null;
         TileEntity inter = tile.getWorldObj()
             .getTileEntity(tile.xCoord + d.offsetX, tile.yCoord + d.offsetY, tile.zCoord + d.offsetZ);
-        if (com.glodblock.github.util.Util.getPart(inter, d.getOpposite()) instanceof PartThaumatoriumInterface part) {
+        if (Platform.getPartFromTE(inter, d.getOpposite()) instanceof PartThaumatoriumInterface part) {
             return new ThaumatoriumInventoryAdapter(ad, part);
         }
         return ad;
@@ -72,6 +76,19 @@ public class ThaumatoriumInventoryAdapter extends InventoryAdaptor {
     @Override
     public ItemStack simulateAdd(ItemStack toBeSimulated) {
         return adaptor.simulateAdd(toBeSimulated);
+    }
+
+    @Override
+    public IAEStack<?> addStack(IAEStack<?> toBeAdded, InsertionMode insertionMode) {
+        if (toBeAdded instanceof IAEItemStack item && item.getItem() instanceof ItemPhial) {
+            return super.addStack(toBeAdded, insertionMode);
+        }
+        return adaptor.addStack(toBeAdded, insertionMode);
+    }
+
+    @Override
+    public IAEStack<?> simulateAddStack(IAEStack<?> toBeSimulated, InsertionMode insertionMode) {
+        return adaptor.simulateAddStack(toBeSimulated, insertionMode);
     }
 
     @Override

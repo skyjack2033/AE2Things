@@ -23,8 +23,8 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -67,7 +67,7 @@ import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.CommonHelper;
 import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.GuiColors;
+import appeng.core.localization.ColorUtils;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.network.NetworkHandler;
@@ -558,6 +558,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 continue;
             }
             for (int col = 0; col < entry.rowSize; ++col) {
+                if (row * entry.rowSize + col >= entry.numSlots) break;
                 addTexturedRectToTesselator(
                     col * 18 + slotLeftMargin,
                     viewY + rowYTop,
@@ -624,6 +625,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 final int colLeft = col * 18 + slotLeftMargin + 1;
                 final int colRight = colLeft + 18 + 1;
                 final int slotIdx = row * entry.rowSize + col;
+                if (slotIdx >= entry.numSlots) break;
                 ItemStack stack = inv.getStackInSlot(slotIdx);
 
                 boolean tooltip = relMouseX > colLeft - 1 && relMouseX < colRight - 1
@@ -648,10 +650,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                     if (!tooltip) {
                         if (entry.slotIsBroken(slotIdx)) {
                             GL11.glTranslatef(0.0f, 0.0f, SLOT_Z - ITEM_STACK_OVERLAY_Z);
-                            drawRect(0, 0, 16, 16, GuiColors.ItemSlotOverlayInvalid.getColor());
+                            drawRect(0, 0, 16, 16, ColorUtils.itemSlotOverlayInvalid.getColor());
                         } else if (entry.filteredRecipes[slotIdx]) {
                             GL11.glTranslatef(0.0f, 0.0f, ITEM_STACK_OVERLAY_Z);
-                            drawRect(0, 0, 16, 16, GuiColors.ItemSlotOverlayUnpowered.getColor());
+                            drawRect(0, 0, 16, 16, ColorUtils.itemSlotOverlayUnpowered.getColor());
                         }
                     } else {
                         tooltipStack = stack;
@@ -660,7 +662,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 } else if (entry.filteredRecipes[slotIdx]) {
                     GL11.glPushMatrix();
                     GL11.glTranslatef(colLeft, viewY + rowYTop + 1, ITEM_STACK_OVERLAY_Z);
-                    drawRect(0, 0, 16, 16, GuiColors.ItemSlotOverlayUnpowered.getColor());
+                    drawRect(0, 0, 16, 16, ColorUtils.itemSlotOverlayUnpowered.getColor());
                     GL11.glPopMatrix();
                 } else if (drawHighlightSlot) {
                     // draw first slot bg
@@ -874,17 +876,32 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         if ((statusFlags & PacketInterfaceTerminalUpdate.CLEAR_ALL_BIT)
             == PacketInterfaceTerminalUpdate.CLEAR_ALL_BIT) {
             /* Should clear all client entries. */
-            this.masterList.list.clear();
+            this.masterList.clear();
         }
         /* Should indicate disconnected, so the terminal turns dark. */
         this.online = (statusFlags & PacketInterfaceTerminalUpdate.DISCONNECT_BIT)
             != PacketInterfaceTerminalUpdate.DISCONNECT_BIT;
+        if (!this.online) ClientProxy.setInterfaceHighlightEntry(null);
 
         for (PacketInterfaceTerminalUpdate.PacketEntry cmd : updates) {
             parsePacketCmd(cmd);
         }
         this.masterList.markDirty();
+        if (!isCurrentHighlightEntry(ClientProxy.getInterfaceHighlightEntry())) {
+            ClientProxy.setInterfaceHighlightEntry(null);
+        }
 
+    }
+
+    private static String getDisplayName(String rawName, String suffix) {
+        String name = rawName == null ? "" : CraftingCPUCluster.translateFromNetwork(rawName);
+        if (suffix == null || suffix.isEmpty()) return name;
+        try {
+            IChatComponent component = IChatComponent.Serializer.func_150699_a(suffix);
+            return name + (component == null ? suffix : component.getUnformattedText());
+        } catch (Exception ignored) {
+            return name + suffix;
+        }
     }
 
     private void parsePacketCmd(PacketInterfaceTerminalUpdate.PacketEntry cmd) {
@@ -893,12 +910,15 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = new InterfaceWirelessEntry(
                 id,
                 addCmd.name,
+                addCmd.suffix,
                 addCmd.rows,
                 addCmd.rowSize,
+                addCmd.numSlots,
                 addCmd.online,
                 addCmd.p2pOutput).setLocation(addCmd.x, addCmd.y, addCmd.z, addCmd.dim, addCmd.side)
                     .setIcons(addCmd.selfRep, addCmd.dispRep)
                     .setItems(addCmd.items);
+            entry.terminalVisible = addCmd.terminalVisible;
             masterList.addEntry(entry);
         } else if (cmd instanceof PacketInterfaceTerminalUpdate.PacketRemove) {
             masterList.removeEntry(id);
@@ -913,9 +933,17 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 entry.online = owCmd.online;
             }
 
+            if (owCmd.terminalVisibleValid) {
+                entry.terminalVisible = owCmd.terminalVisible;
+            }
+
+            if (owCmd.sizeValid) {
+                entry.resize(owCmd.rows, owCmd.rowSize, owCmd.numSlots);
+            }
+
             if (owCmd.itemsValid) {
                 if (owCmd.allItemUpdate) {
-                    entry.fullItemUpdate(owCmd.items, owCmd.validIndices.length);
+                    entry.fullItemUpdate(owCmd.items);
                 } else {
                     entry.partialItemUpdate(owCmd.items, owCmd.validIndices);
                 }
@@ -925,11 +953,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = masterList.list.get(id);
 
             if (entry != null) {
-                if (StatCollector.canTranslate(renameCmd.newName)) {
-                    entry.dispName = StatCollector.translateToLocal(renameCmd.newName);
-                } else {
-                    entry.dispName = StatCollector.translateToFallback(renameCmd.newName);
-                }
+                entry.dispName = getDisplayName(renameCmd.newName, renameCmd.suffix);
+                masterList.moveEntry(entry);
             }
             masterList.isDirty = true;
         }
@@ -1019,9 +1044,14 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
     }
 
     public void setHighlightSlot() {
+        ClientProxy.setInterfaceHighlightEntry(null);
+        if (!this.online) return;
         for (InterfaceWirelessSection section : this.masterList.getVisibleSections()) {
-            for (InterfaceWirelessEntry entry : section.entries) {
-                for (int i = 0; i < entry.inv.getSizeInventory(); i++) {
+            Iterator<InterfaceWirelessEntry> entries = section.getVisible();
+            while (entries.hasNext()) {
+                InterfaceWirelessEntry entry = entries.next();
+                if (!entry.online || entry.p2pOutput || !entry.terminalVisible) continue;
+                for (int i = 0; i < entry.numSlots; i++) {
                     ItemStack item = entry.inv.getStackInSlot(i);
                     if (item == null) {
                         ClientProxy.setInterfaceHighlightEntry(new InterfaceWirelessEntryWrapper(entry, i));
@@ -1030,6 +1060,26 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 }
             }
         }
+    }
+
+    public boolean isCurrentHighlightEntry(InterfaceWirelessEntryWrapper wrapper) {
+        if (wrapper == null || !this.online) return false;
+        InterfaceWirelessEntry entry = wrapper.entry;
+        if (this.masterList.list.get(entry.id) != entry || !entry.online
+            || entry.p2pOutput
+            || !entry.terminalVisible
+            || wrapper.slot < 0
+            || wrapper.slot >= entry.numSlots
+            || entry.inv.getStackInSlot(wrapper.slot) != null) return false;
+        for (InterfaceWirelessSection section : this.masterList.getVisibleSections()) {
+            if (section == entry.section) {
+                Iterator<InterfaceWirelessEntry> entries = section.getVisible();
+                while (entries.hasNext()) {
+                    if (entries.next() == entry) return true;
+                }
+            }
+        }
+        return false;
     }
 
     public static class InterfaceWirelessEntryWrapper {
@@ -1061,6 +1111,16 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
         InterfaceWirelessList() {
             this.isDirty = true;
+        }
+
+        private void clear() {
+            list.clear();
+            sections.clear();
+            visibleSections.clear();
+            hoveredEntry = null;
+            height = 0;
+            isDirty = true;
+            ClientProxy.setInterfaceHighlightEntry(null);
         }
 
         /**
@@ -1139,6 +1199,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         }
 
         public void addEntry(InterfaceWirelessEntry entry) {
+            removeEntry(entry.id);
             InterfaceWirelessSection section = sections.get(entry.dispName);
 
             if (section == null) {
@@ -1154,8 +1215,19 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = list.remove(id);
 
             if (entry != null) {
-                entry.section.removeEntry(entry);
+                InterfaceWirelessSection section = entry.section;
+                section.removeEntry(entry);
+                if (section.entries.isEmpty()) sections.remove(section.name);
+                if (hoveredEntry == entry) hoveredEntry = null;
+                InterfaceWirelessEntryWrapper highlight = ClientProxy.getInterfaceHighlightEntry();
+                if (highlight != null && highlight.entry == entry) ClientProxy.setInterfaceHighlightEntry(null);
+                isDirty = true;
             }
+        }
+
+        private void moveEntry(InterfaceWirelessEntry entry) {
+            if (entry.section != null && entry.dispName.equals(entry.section.name)) return;
+            addEntry(entry);
         }
 
         public List<InterfaceWirelessSection> getVisibleSections() {
@@ -1240,7 +1312,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 .toLowerCase();
 
             for (InterfaceWirelessEntry entry : entries) {
-                if (!entry.online || entry.p2pOutput) continue;
+                if (!entry.online || entry.p2pOutput || !entry.terminalVisible) continue;
                 var moleAss = AEApi.instance()
                     .definitions()
                     .blocks()
@@ -1252,7 +1324,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                     continue;
                 }
                 if (AEConfig.instance.showOnlyInterfacesWithFreeSlotsInInterfaceTerminal
-                    && entry.numItems == entry.rows * entry.rowSize) {
+                    && entry.numItems >= entry.numSlots) {
                     continue;
                 }
                 if (onlyBrokenRecipes && !entry.hasBrokenSlot()) {
@@ -1334,22 +1406,23 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         long id;
         int x, y, z, dim, side;
         int rows, rowSize;
+        int numSlots;
         int guiHeight;
         int dispY = -9999;
         boolean online;
         boolean p2pOutput;
+        boolean terminalVisible = true;
         private Boolean[] brokenRecipes;
         int numItems = 0;
         /** Should recipe be filtered out/grayed out? */
         boolean[] filteredRecipes;
         private int hoveredSlotIdx = -1;
 
-        InterfaceWirelessEntry(long id, String name, int rows, int rowSize, boolean online, boolean p2pOutput) {
+        InterfaceWirelessEntry(long id, String name, String suffix, int rows, int rowSize, int numSlots, boolean online,
+            boolean p2pOutput) {
             this.id = id;
-            this.dispName = CraftingCPUCluster.translateFromNetwork(name);
-            this.inv = new AppEngInternalInventory(null, rows * rowSize, 1);
-            this.rows = rows;
-            this.rowSize = rowSize;
+            this.dispName = getDisplayName(name, suffix);
+            this.resize(rows, rowSize, numSlots);
             this.online = online;
             this.p2pOutput = p2pOutput;
             this.optionsButton = new GuiFCImgButton(2, 0, "HIGHLIGHT", "YES");
@@ -1361,9 +1434,6 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 this.doubleButton.setHalfSize(true);
             }
 
-            this.guiHeight = 18 * rows + 1;
-            this.brokenRecipes = new Boolean[rows * rowSize];
-            this.filteredRecipes = new boolean[rows * rowSize];
         }
 
         InterfaceWirelessEntry setLocation(int x, int y, int z, int dim, int side) {
@@ -1384,39 +1454,57 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             return this;
         }
 
-        public void fullItemUpdate(NBTTagList items, int newSize) {
-            inv = new AppEngInternalInventory(null, newSize);
-            rows = newSize / rowSize;
-            brokenRecipes = new Boolean[newSize];
+        private void resize(int rows, int rowSize, int numSlots) {
+            this.rows = Math.max(0, rows);
+            this.rowSize = Math.max(1, rowSize);
+            this.numSlots = Math.max(0, Math.min(numSlots, this.rows * this.rowSize));
+            AppEngInternalInventory previous = this.inv;
+            this.inv = new AppEngInternalInventory(null, this.numSlots, 1);
+            this.brokenRecipes = new Boolean[this.numSlots];
+            this.filteredRecipes = new boolean[this.numSlots];
+            this.numItems = 0;
+            if (previous != null) {
+                for (int i = 0; i < Math.min(previous.getSizeInventory(), this.numSlots); i++) {
+                    setItemInSlot(previous.getStackInSlot(i), i);
+                }
+            }
+            this.guiHeight = 18 * this.rows + 1;
+        }
+
+        public void fullItemUpdate(NBTTagList items) {
+            inv = new AppEngInternalInventory(null, numSlots, 1);
+            brokenRecipes = new Boolean[numSlots];
+            filteredRecipes = new boolean[numSlots];
             numItems = 0;
 
             for (int i = 0; i < inv.getSizeInventory(); ++i) {
                 setItemInSlot(ItemStack.loadItemStackFromNBT(items.getCompoundTagAt(i)), i);
             }
-            this.guiHeight = 18 * rows + 4;
         }
 
         InterfaceWirelessEntry setItems(NBTTagList items) {
-            assert items.tagCount() == inv.getSizeInventory();
-
-            for (int i = 0; i < items.tagCount(); ++i) {
+            for (int i = 0; i < Math.min(items.tagCount(), numSlots); ++i) {
                 setItemInSlot(ItemStack.loadItemStackFromNBT(items.getCompoundTagAt(i)), i);
             }
             return this;
         }
 
         public void partialItemUpdate(NBTTagList items, int[] validIndices) {
-            for (int i = 0; i < validIndices.length; ++i) {
+            if (validIndices == null) return;
+            for (int i = 0; i < Math.min(validIndices.length, items.tagCount()); ++i) {
                 setItemInSlot(ItemStack.loadItemStackFromNBT(items.getCompoundTagAt(i)), validIndices[i]);
             }
         }
 
         private void setItemInSlot(ItemStack stack, int idx) {
+            if (idx < 0 || idx >= numSlots) return;
             try {
                 final int oldHasItem = inv.getStackInSlot(idx) != null ? 1 : 0;
                 final int newHasItem = stack != null ? 1 : 0;
 
                 inv.setInventorySlotContents(idx, stack);
+                brokenRecipes[idx] = null;
+                filteredRecipes[idx] = false;
                 // Update item count
                 numItems += newHasItem - oldHasItem;
                 assert numItems >= 0;
@@ -1470,6 +1558,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 this.dispName);
             NBTTagCompound data = new NBTTagCompound();
             blockPos.writeToNBT(data);
+            data.setLong("entryId", this.id);
             return data;
         }
 
@@ -1523,6 +1612,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 final int col = offsetX / 18;
                 final int row = offsetY / 18;
                 final int slotIdx = row * rowSize + col;
+                if (slotIdx >= numSlots) return false;
 
                 // send packet to server, request an update
                 // TODO: Client prediction.

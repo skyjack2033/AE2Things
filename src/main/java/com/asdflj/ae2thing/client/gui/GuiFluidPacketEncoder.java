@@ -24,7 +24,7 @@ import com.glodblock.github.util.Util;
 import appeng.client.gui.AEBaseGui;
 import appeng.container.slot.SlotFake;
 import appeng.core.AEConfig;
-import appeng.core.localization.GuiColors;
+import appeng.core.localization.ColorUtils;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketClickOrDragFakeSlot;
@@ -66,7 +66,7 @@ public class GuiFluidPacketEncoder extends AEBaseGui implements INEIGuiHandler {
         this.level = new GuiTextField(this.fontRendererObj, 24, 43, 79, this.fontRendererObj.FONT_HEIGHT);
         this.level.setEnableBackgroundDrawing(false);
         this.level.setMaxStringLength(16);
-        this.level.setTextColor(GuiColors.LevelEmitterValue.getColor());
+        this.level.setTextColor(ColorUtils.searchboxText.getColor());
         this.level.setVisible(true);
         this.level.setFocused(true);
         ((ContainerFluidPacketEncoder) this.inventorySlots).setTextField(this.level);
