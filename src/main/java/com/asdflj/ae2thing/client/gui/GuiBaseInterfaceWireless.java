@@ -23,7 +23,6 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
@@ -44,6 +43,7 @@ import com.asdflj.ae2thing.network.CPacketRenamer;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.proxy.ClientProxy;
 import com.asdflj.ae2thing.util.GTUtil;
+import com.asdflj.ae2thing.util.InterfaceTerminalNames;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.NeCharUtil;
 import com.asdflj.ae2thing.util.Util;
@@ -78,7 +78,6 @@ import appeng.helpers.PatternHelper;
 import appeng.integration.IntegrationRegistry;
 import appeng.integration.IntegrationType;
 import appeng.items.misc.ItemEncodedPattern;
-import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
@@ -895,17 +894,6 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     }
 
-    private static String getDisplayName(String rawName, String suffix) {
-        String name = rawName == null ? "" : CraftingCPUCluster.translateFromNetwork(rawName);
-        if (suffix == null || suffix.isEmpty()) return name;
-        try {
-            IChatComponent component = IChatComponent.Serializer.func_150699_a(suffix);
-            return name + (component == null ? suffix : component.getUnformattedText());
-        } catch (Exception ignored) {
-            return name + suffix;
-        }
-    }
-
     private void parsePacketCmd(PacketInterfaceTerminalUpdate.PacketEntry cmd) {
         long id = cmd.entryId;
         if (cmd instanceof PacketInterfaceTerminalUpdate.PacketAdd addCmd) {
@@ -955,7 +943,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = masterList.list.get(id);
 
             if (entry != null) {
-                entry.dispName = getDisplayName(renameCmd.newName, renameCmd.suffix);
+                entry.setName(renameCmd.newName, renameCmd.suffix);
                 masterList.moveEntry(entry);
             }
             masterList.isDirty = true;
@@ -1394,6 +1382,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
      */
     public class InterfaceWirelessEntry {
 
+        private String rawName;
+        private String nameSuffix;
         String dispName;
         AppEngInternalInventory inv;
         GuiFCImgButton optionsButton;
@@ -1423,7 +1413,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         InterfaceWirelessEntry(long id, String name, String suffix, int rows, int rowSize, int numSlots, boolean online,
             boolean p2pOutput) {
             this.id = id;
-            this.dispName = getDisplayName(name, suffix);
+            this.setName(name, suffix);
             this.resize(rows, rowSize, numSlots);
             this.online = online;
             this.p2pOutput = p2pOutput;
@@ -1452,8 +1442,15 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             // Kotlin would make this pretty easy :(
             this.selfRep = selfRep;
             this.dispRep = dispRep;
+            this.setName(this.rawName, this.nameSuffix);
 
             return this;
+        }
+
+        private void setName(String rawName, String suffix) {
+            this.rawName = rawName;
+            this.nameSuffix = suffix;
+            this.dispName = InterfaceTerminalNames.getDisplayName(rawName, suffix, this.dispRep, this.selfRep);
         }
 
         private void resize(int rows, int rowSize, int numSlots) {

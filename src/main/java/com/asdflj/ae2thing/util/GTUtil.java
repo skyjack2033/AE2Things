@@ -32,6 +32,7 @@ import gregtech.api.enums.ItemList;
 import gregtech.api.metatileentity.BaseMetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.common.blocks.ItemMachines;
+import gregtech.common.items.ItemIntegratedCircuit;
 import gregtech.nei.GTNEIDefaultHandler;
 
 public class GTUtil {
@@ -53,18 +54,18 @@ public class GTUtil {
     }
 
     public static String getRecipeName(IRecipeHandler recipe, List<OrderStack<?>> in) {
-        if (recipe instanceof GTNEIDefaultHandler) {
+        if (recipe instanceof GTNEIDefaultHandler gtRecipe) {
+            // The window title can be cropped and have an overclock tier appended.
+            String recipeName = gtRecipe.getRecipeTabName();
             if (Mods.PROGRAMMABLE_HATCHES.isModLoaded()
                 && getConfigValue(ButtonConstants.DUAL_INTERFACE_TERMINAL_FILL_CIRCUIT)) {
-                return recipe.getRecipeName();
+                return recipeName;
             }
-            for (OrderStack<?> stack : in) {
-                if (stack.getStack() instanceof ItemStack is && is.stackSize == 0) {
-                    return getConfigValue(ButtonConstants.DUAL_INTERFACE_TERMINAL_APPEND_CIRCUIT_DAMAGE)
-                        ? String.format("%s %s", recipe.getRecipeName(), is.getItemDamage())
-                        : recipe.getRecipeName();
-                }
+            if (getConfigValue(ButtonConstants.DUAL_INTERFACE_TERMINAL_APPEND_CIRCUIT_DAMAGE)) {
+                return RecipeSearchTerms
+                    .appendNonConsumedItems(recipeName, in, stack -> stack.getItem() instanceof ItemIntegratedCircuit);
             }
+            return recipeName;
         }
         return recipe.getRecipeName();
     }
