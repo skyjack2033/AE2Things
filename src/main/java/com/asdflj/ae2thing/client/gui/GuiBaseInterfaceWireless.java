@@ -44,6 +44,7 @@ import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.proxy.ClientProxy;
 import com.asdflj.ae2thing.util.GTUtil;
 import com.asdflj.ae2thing.util.InterfaceTerminalNames;
+import com.asdflj.ae2thing.util.InterfaceTerminalSearch;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.NeCharUtil;
 import com.asdflj.ae2thing.util.Util;
@@ -1119,14 +1120,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         private void update() {
             height = 0;
             visibleSections.clear();
-            String[] list = GuiBaseInterfaceWireless.this.searchFieldNames.getText()
-                .split(" ");
-            out: for (InterfaceWirelessSection section : sections.values()) {
-                for (String query : list) {
-                    if (!NeCharUtil.INSTANCE.contains(query.toLowerCase(), section.name.toLowerCase())) {
-                        continue out;
-                    }
-                }
+            String query = GuiBaseInterfaceWireless.this.searchFieldNames.getText();
+            for (InterfaceWirelessSection section : sections.values()) {
+                if (!InterfaceTerminalSearch.matches(query, section.name, NeCharUtil.INSTANCE::contains)) continue;
 
                 section.isDirty = true;
                 if (section.getVisible()

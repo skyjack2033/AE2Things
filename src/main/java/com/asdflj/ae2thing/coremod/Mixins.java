@@ -33,6 +33,11 @@ public enum Mixins implements IMixins {
         .addRequiredMod(Mods.BLOCK_RENDERER)
         .setPhase(Phase.LATE)),
 
+    BOTANIA_NEI(new MixinBuilder().addClientMixins("botania.MixinRecipeHandlerBrewery")
+        .addRequiredMod(Mods.BOTANIA)
+        .addRequiredMod(Mods.NOT_ENOUGH_ITEMS)
+        .setPhase(Phase.LATE)),
+
     NEI(new MixinBuilder()
         .addClientMixins(
             "nei.MixinGuiContainerManager",
