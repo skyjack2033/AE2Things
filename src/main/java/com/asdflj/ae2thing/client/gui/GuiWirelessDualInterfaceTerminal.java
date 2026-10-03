@@ -247,7 +247,8 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
                 GuiText.CraftingStatus.getLocal(),
                 itemRender));
         this.craftingStatusBtn.setHideEdge(13); // GuiTabButton implementation //
-        this.typeFilter.init(this.buttonList, this.guiLeft - 18, this.guiTop + 8);
+        // Keep the type filters beside the interface controls, as in GuiMonitor.
+        this.typeFilter.init(this.buttonList, this.guiLeft - 36, this.guiTop + 8);
     }
 
     @Override

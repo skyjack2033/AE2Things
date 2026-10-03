@@ -500,6 +500,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             }
         }
         bindTexture(BACKGROUND);
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_DEPTH_BUFFER_BIT);
         GL11.glTranslatef(0.0f, 0.0f, ITEM_STACK_OVERLAY_Z + ITEM_STACK_Z + STEP_Z);
         if (sectionBottom > 0 && sectionBottom < InterfaceWirelessSection.TITLE_HEIGHT) {
             /* Transition draw */
@@ -518,7 +520,6 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             GL11.glTranslatef(0.0f, 0.0f, 100f);
             drawTexturedModalRect(0, 0, VIEW_LEFT, HEADER_HEIGHT, VIEW_WIDTH, InterfaceWirelessSection.TITLE_HEIGHT);
             fontRendererObj.drawString(section.name, 2, 2, fontColor);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
         } else {
             /* Normal title draw */
             drawTexturedModalRect(
@@ -530,7 +531,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 InterfaceWirelessSection.TITLE_HEIGHT);
             fontRendererObj.drawString(section.name, 2, viewY + 2, fontColor);
         }
-        GL11.glTranslatef(0.0f, 0.0f, -(ITEM_STACK_OVERLAY_Z + ITEM_STACK_Z + STEP_Z));
+        GL11.glPopAttrib();
+        GL11.glPopMatrix();
 
         return InterfaceWirelessSection.TITLE_HEIGHT + renderY;
     }

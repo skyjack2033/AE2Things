@@ -52,7 +52,8 @@ dependencies {
 
     compileOnly("curse.maven:hbms-nuclear-tech-mod-235439:5534354")
     compileOnly(files("libs/hbmaeaddon-1.4-dev.jar"))
-    compileOnlyApi(files("libs/programmablehatches-0.1.3p50-dev.jar"))
+    // Official dev artifact from Programmable-Hatches-Mod v0.2.0p26-beta.
+    compileOnlyApi(files("libs/programmablehatches-0.2.0p26-dev.jar"))
 
     // jvmDowngrader
     compileOnly("javax.xml.bind:jaxb-api:2.3.1")
