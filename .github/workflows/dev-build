@@ -2,9 +2,9 @@ name: Dev Release build
 
 on:
   push:
-    branches: [ master, main, release/**, ** ]
+    branches: [ master, main, release/**, dev-* ]
   pull_request:
-    branches: [ master, main, release/**, ** ]
+    branches: [ master, main, release/**, dev-* ]
   workflow_dispatch:
 
 concurrency:
