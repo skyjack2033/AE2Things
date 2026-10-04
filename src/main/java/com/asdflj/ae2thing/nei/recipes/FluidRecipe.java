@@ -31,6 +31,12 @@ public final class FluidRecipe {
         }
     }
 
+    public static void addRecipeMapIfAbsent(String recipeIdentifier, IRecipeExtractor extractor) {
+        if (!IdentifierMap.containsKey(recipeIdentifier)) {
+            addRecipeMap(recipeIdentifier, extractor);
+        }
+    }
+
     public static List<OrderStack<?>> getPackageInputs(IRecipeHandler recipe, int index, boolean priority) {
         TemplateRecipeHandler tRecipe = (TemplateRecipeHandler) recipe;
         if (tRecipe == null) return new ArrayList<>();

@@ -69,6 +69,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Inspect the pinned NEI handler bytecode without making Botania a required runtime mod.
     testRuntimeOnly("com.github.GTNewHorizons:Botania:1.13.34-GTNH:dev") { transitive = false }
+    testRuntimeOnly("com.github.GTNewHorizons:GT5-Unofficial:5.09.54.133:dev") { transitive = false }
 }
 
 configurations.configureEach {

@@ -10,6 +10,7 @@ import com.asdflj.ae2thing.client.gui.GuiInfusionPatternTerminal;
 import com.asdflj.ae2thing.client.gui.GuiWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.nei.recipes.FluidRecipe;
+import com.asdflj.ae2thing.nei.recipes.extractor.GTRecipeExtractor;
 import com.github.vfyjxf.nee.nei.NEETerminalBookmarkContainerHandler;
 
 import codechicken.lib.config.ConfigTagParent;
@@ -44,6 +45,10 @@ public class NEI_TH_Config implements IConfigureNEI {
                     PatternTerminalRecipeTransferHandler.INSTANCE,
                     identifier);
             }
+        }
+        // NEI loads plugins after FML load-complete, when addon recipe categories are also available.
+        if (Mods.isGt5UnofficialLoaded()) {
+            GTRecipeExtractor.registerRecipeMaps();
         }
         for (String identifier : FluidRecipe.getSupportRecipes()) {
             if (!API.hasGuiOverlayHandler(GuiWirelessDualInterfaceTerminal.class, identifier)) {
