@@ -15,9 +15,9 @@ import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.ItemBiggerAppEngInventory;
 import com.asdflj.ae2thing.inventory.ItemPatternRefillInventory;
 import com.asdflj.ae2thing.inventory.ItemPatternsInventory;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.asdflj.ae2thing.util.TerminalTypeFilters;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.common.item.ItemFluidDrop;
 import com.glodblock.github.common.item.ItemFluidPacket;
 
 import appeng.api.config.Settings;
@@ -30,7 +30,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.parts.IInterfaceTerminal;
 import appeng.api.storage.ITerminalTypeFilterProvider;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IAEStackType;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
@@ -283,17 +283,18 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
                     .getPatternForItem(is, this.getActionableNode().getWorld());
 
                 if (details != null) {
-                    final IAEItemStack[] inItems = details.getInputs();
-                    final IAEItemStack[] outItems = details.getOutputs();
+                    final IAEStack<?>[] inItems = details.getAEInputs();
+                    final IAEStack<?>[] outItems = java.util.Arrays.stream(details.getAEOutputs())
+                        .filter(java.util.Objects::nonNull).toArray(IAEStack<?>[]::new);
                     this.setCraftingRecipe(details.isCraftable());
                     int inputsCount = 0;
                     int outputCount = 0;
-                    for (IAEItemStack inItem : inItems) {
+                    for (IAEStack<?> inItem : inItems) {
                         if (inItem != null) {
                             inputsCount++;
                         }
                     }
-                    for (IAEItemStack outItem : outItems) {
+                    for (IAEStack<?> outItem : outItems) {
                         if (outItem != null) {
                             outputCount++;
                         }
@@ -318,37 +319,18 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
                     }
 
                     for (int i = 0; i < getCraftingInternalInventory().getSizeInventory() && i < inItems.length; i++) {
-                        final IAEItemStack item = inItems[i];
-                        if (item != null) {
-                            if (item.getItem() instanceof ItemFluidDrop && !this.isCraftingRecipe()) {
-                                ItemStack packet = ItemFluidPacket
-                                    .newStack(ItemFluidDrop.getFluidStack(item.getItemStack()));
-                                getCraftingInternalInventory().setInventorySlotContents(i, packet);
-                            } else getCraftingInternalInventory().setInventorySlotContents(i, item.getItemStack());
-                        }
+                        getCraftingInternalInventory()
+                            .setInventorySlotContents(i, PatternStackCodec.toTerminalStack(inItems[i]));
                     }
 
                     if (inverted) {
                         for (int i = 0; i < this.outputEx.getSizeInventory() && i < outItems.length; i++) {
-                            final IAEItemStack item = outItems[i];
-                            if (item != null) {
-                                if (item.getItem() instanceof ItemFluidDrop) {
-                                    ItemStack packet = ItemFluidPacket
-                                        .newStack(ItemFluidDrop.getFluidStack(item.getItemStack()));
-                                    this.outputEx.setInventorySlotContents(i, packet);
-                                } else this.outputEx.setInventorySlotContents(i, item.getItemStack());
-                            }
+                            this.outputEx.setInventorySlotContents(i, PatternStackCodec.toTerminalStack(outItems[i]));
                         }
                     } else {
                         for (int i = 0; i < outItems.length && i < 8; i++) {
-                            final IAEItemStack item = outItems[i];
-                            if (item != null) {
-                                if (item.getItem() instanceof ItemFluidDrop) {
-                                    ItemStack packet = ItemFluidPacket
-                                        .newStack(ItemFluidDrop.getFluidStack(item.getItemStack()));
-                                    this.outputEx.setInventorySlotContents(i >= 4 ? 12 + i : i, packet);
-                                } else this.outputEx.setInventorySlotContents(i >= 4 ? 12 + i : i, item.getItemStack());
-                            }
+                            this.outputEx.setInventorySlotContents(
+                                i >= 4 ? 12 + i : i, PatternStackCodec.toTerminalStack(outItems[i]));
                         }
                     }
                 }

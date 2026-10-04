@@ -13,11 +13,10 @@ import com.asdflj.ae2thing.api.Constants;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotEncodedPatternInput;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotReplaceFake;
 import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.glodblock.github.common.item.ItemFluidDrop;
 import com.glodblock.github.common.item.ItemFluidEncodedPattern;
 import com.glodblock.github.common.item.ItemFluidPacket;
-import com.glodblock.github.loader.ItemAndBlockHolder;
-import com.glodblock.github.util.FluidPatternDetails;
 import com.glodblock.github.util.Util;
 
 import appeng.api.AEApi;
@@ -25,6 +24,7 @@ import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.slot.SlotFake;
 import appeng.container.slot.SlotRestrictedInput;
@@ -160,19 +160,26 @@ public class ContainerPatternModifier extends AEBaseContainer implements IPatter
 
     private void encodeFluidPattern(ICraftingPatternDetails details, IAEItemStack[] in, IAEItemStack[] out, int slot,
         ItemStack stack) {
-        FluidPatternDetails fluidDetails;
-        if (details instanceof FluidPatternDetails) {
-            fluidDetails = (FluidPatternDetails) details;
-        } else {
-            ItemStack cp = ItemAndBlockHolder.PATTERN.stack();
-            cp.setTagCompound(stack.getTagCompound());
-            fluidDetails = (FluidPatternDetails) ItemAndBlockHolder.PATTERN
-                .getPatternForItem(cp, this.getInventoryPlayer().player.worldObj);
+        IAEStack<?>[] nativeInputs = new IAEStack<?>[in.length];
+        IAEStack<?>[] nativeOutputs = new IAEStack<?>[out.length];
+        for (int i = 0; i < in.length; i++) nativeInputs[i] = PatternStackCodec.normalize(in[i]);
+        for (int i = 0; i < out.length; i++) nativeOutputs[i] = PatternStackCodec.normalize(out[i]);
+        NBTTagCompound data = PatternStackCodec
+            .processingData(nativeInputs, nativeOutputs, details.canSubstitute(), details.canBeSubstitute(), false);
+        if (data == null) return;
+        ItemStack pattern = AEApi.instance()
+            .definitions()
+            .items()
+            .encodedUltimatePattern()
+            .maybeStack(1)
+            .orNull();
+        if (pattern == null) return;
+        pattern.setTagCompound(data);
+        stampAuthor(pattern);
+        if (((ICraftingPatternItem) pattern.getItem())
+            .getPatternForItem(pattern, this.getInventoryPlayer().player.worldObj) != null) {
+            patterns.setInventorySlotContents(slot, pattern);
         }
-        fluidDetails.setInputs(in);
-        fluidDetails.setOutputs(out);
-        ItemStack pattern = fluidDetails.writeToStack();
-        patterns.setInventorySlotContents(slot, stampAuthor(pattern));
     }
 
     protected ItemStack stampAuthor(ItemStack patternStack) {
