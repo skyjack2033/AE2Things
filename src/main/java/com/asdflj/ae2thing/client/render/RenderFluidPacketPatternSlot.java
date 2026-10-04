@@ -25,19 +25,21 @@ public class RenderFluidPacketPatternSlot implements ISlotRender {
 
     @Override
     public boolean drawSlot(Slot slot, IAEItemStack stack, IGuiDrawSlot draw, boolean display) {
+        // IGuiDrawSlot invokes the GUI's super implementation before running drawCallback.
+        return true;
+    }
+
+    @Override
+    public void drawCallback(Slot slot, IAEItemStack stack, IGuiDrawSlot draw, boolean display) {
         if (stack.getItem() instanceof ItemFluidPacket) {
             FluidStack fluidStack = ItemFluidPacket.getFluidStack(stack);
             if (fluidStack == null || fluidStack.amount <= 0) {
-                return true;
+                return;
             }
-            draw.getAEBaseGui()
-                .func_146977_a(slot);
             IAEItemStack fake = stack.copy();
             fake.setStackSize(fluidStack.amount);
             aeRenderItem.setAeStack(fake);
             draw.renderStackSize(display, stack, slot);
-            return false;
         }
-        return true;
     }
 }
