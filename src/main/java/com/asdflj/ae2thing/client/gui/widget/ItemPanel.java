@@ -82,7 +82,6 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     private GuiImgButton searchBoxSettings;
     private static String memoryText = "";
     private final TextHistory history;
-    private int lastClickTime = 0;
 
     public ItemPanel(IWidgetGui gui, ContainerWirelessDualInterfaceTerminal container, IConfigManager configSrc,
         ISortSource source) {
@@ -299,11 +298,6 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     }
 
     private boolean meSlotClick(VirtualMESlot slot, int ctrlDown, int clickMode) {
-        // Temporary solution
-        if (lastClickTime == Minecraft.getMinecraft().thePlayer.ticksExisted) {
-            return false;
-        }
-        lastClickTime = Minecraft.getMinecraft().thePlayer.ticksExisted;
         saveSearchString();
         final EntityPlayer player = Minecraft.getMinecraft().thePlayer;
         if (this.parent.updateFluidContainer(slot, ctrlDown, clickMode)) return true;
@@ -370,6 +364,18 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     }
 
     @Override
+    public void handleDragVirtualSlot(VirtualMESlot slot, int mouseButton) {
+        if (!(slot instanceof VirtualMEMonitorableSlot)) return;
+        if (!isShiftKeyDown() && !Keyboard.isKeyDown(Keyboard.KEY_SPACE)) return;
+
+        final boolean pickBlock = mouseButton == GuiMEMonitorable.keyBindPickBlockAction;
+        final int ctrlDown = pickBlock ? 0 : mouseButton;
+        final int clickMode = pickBlock ? CLICK_MODE_PICK_BLOCK
+            : (isShiftKeyDown() ? CLICK_MODE_SHIFT : CLICK_MODE_NORMAL);
+        meSlotClick(slot, ctrlDown, clickMode);
+    }
+
+    @Override
     public boolean handleMouseClick(Slot slot, int slotIdx, int ctrlDown, int mouseButton) {
         return false;
     }
@@ -409,11 +415,33 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
 
     @Override
     public void mouseClickMove(int x, int y, int c, long d) {
-        this.scrollbar.click(this.parent, x - this.parent.getGuiLeft(), y - this.parent.getGuiTop());
+        this.scrollbar.clickMove(y - this.parent.getGuiTop());
     }
 
     @Override
     public boolean mouseWheelEvent(int mouseX, int mouseY, int wheel) {
+        if (isShiftKeyDown() && wheel != 0) {
+            for (VirtualMEMonitorableSlot slot : this.gui.getMeSlots()) {
+                if (!slot.isHovered(mouseX - this.parent.getGuiLeft() + 1, mouseY - this.parent.getGuiTop() + 1))
+                    continue;
+
+                final IAEStack<?> aeStack = slot.getAEStack();
+                final MonitorableAction direction = wheel > 0 ? MonitorableAction.ROLL_DOWN : MonitorableAction.ROLL_UP;
+                final EntityPlayer player = Minecraft.getMinecraft().thePlayer;
+                if (direction == MonitorableAction.ROLL_DOWN && player.inventory.getItemStack() == null) {
+                    break;
+                }
+                if (direction == MonitorableAction.ROLL_UP && !(aeStack instanceof IAEItemStack)) {
+                    break;
+                }
+
+                this.inventorySlots.setTargetStack(aeStack);
+                for (int i = 0; i < Math.abs(wheel); i++) {
+                    NetworkHandler.instance.sendToServer(new PacketMonitorableAction(direction, -1));
+                }
+                return true;
+            }
+        }
         if (Mods.NOT_ENOUGH_ITEMS.isModLoaded() && this.searchField.isMouseIn(mouseX, mouseY) && isNEISearch()) {
             TextHistory.Direction direction;
             switch (wheel) {

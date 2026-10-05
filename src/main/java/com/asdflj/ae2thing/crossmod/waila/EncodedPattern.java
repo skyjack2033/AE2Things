@@ -19,12 +19,13 @@ import net.minecraft.util.StringUtils;
 
 import com.asdflj.ae2thing.util.NameConst;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.core.localization.GuiText;
 import appeng.helpers.PatternHelper;
+import appeng.helpers.UltimatePatternHelper;
 import appeng.items.misc.ItemEncodedPattern;
 
 public class EncodedPattern extends mcp.mobius.waila.handlers.nei.TooltipHandlerWaila {
@@ -46,27 +47,42 @@ public class EncodedPattern extends mcp.mobius.waila.handlers.nei.TooltipHandler
                 lines.add(lastLine);
                 return lines;
             }
-            final ICraftingPatternDetails details = pattern.getPatternForItem(stack, player.worldObj);
+            // Older client validation could persist InvalidPattern=true on an otherwise
+            // valid native ultimate pattern. Parse a copy with only that stale cache flag
+            // removed; never mutate the stack stored in the player's inventory/network.
+            final ItemStack parseStack = stack.copy();
+            if (parseStack.stackTagCompound != null) {
+                parseStack.stackTagCompound.removeTag("InvalidPattern");
+            }
+            final ICraftingPatternDetails details = player == null || player.worldObj == null ? null
+                : pattern.getPatternForItem(parseStack, player.worldObj);
             final boolean substitute = encodedValue.getBoolean("substitute");
             final boolean beSubstitute = encodedValue.getBoolean("beSubstitute");
             final String author = encodedValue.getString("author");
             final boolean isCrafting = encodedValue.getBoolean("crafting");
-            IAEItemStack[] inItems;
-            IAEItemStack[] outItems;
+            IAEStack<?>[] inItems;
+            IAEStack<?>[] outItems;
 
             if (details == null) {
                 final ItemStack unknownItem = new ItemStack(Blocks.fire);
                 unknownItem.setStackDisplayName(GuiText.UnknownItem.getLocal());
-                inItems = PatternHelper.convertToCondensedList(
-                    PatternHelper.loadIAEItemStackFromNBT(encodedValue.getTagList("in", 10), false, unknownItem));
-                outItems = PatternHelper.convertToCondensedList(
-                    PatternHelper.loadIAEItemStackFromNBT(encodedValue.getTagList("out", 10), false, unknownItem));
+                // The old fallback only understood ItemStack NBT. Modern ultimate patterns
+                // use StackType=fluid/item and are still perfectly displayable even when the
+                // world is unavailable or another handler rejected the pattern. Decode both
+                // formats here so a valid fluid recipe is never reported as an invalid item.
+                inItems = PatternHelper.convertToCondensedAEList(
+                    UltimatePatternHelper.loadIAEStackFromNBT(encodedValue.getTagList("in", 10), false, unknownItem));
+                outItems = PatternHelper.convertToCondensedAEList(
+                    UltimatePatternHelper.loadIAEStackFromNBT(encodedValue.getTagList("out", 10), false, unknownItem));
             } else {
-                inItems = details.getCondensedInputs();
-                outItems = details.getCondensedOutputs();
+                inItems = details.getCondensedAEInputs();
+                outItems = details.getCondensedAEOutputs();
             }
 
-            boolean recipeIsBroken = details == null;
+            // When a world is available, respect the item's own validation. Decodable NBT
+            // alone does not prove that a crafting recipe is still registered and valid.
+            boolean recipeIsBroken = player != null && player.worldObj != null ? details == null
+                : inItems.length == 0 || outItems.length == 0;
             final List<String> in = new ArrayList<>();
             final List<String> out = new ArrayList<>();
 
@@ -111,32 +127,32 @@ public class EncodedPattern extends mcp.mobius.waila.handlers.nei.TooltipHandler
         return lines;
     }
 
-    private boolean addInformation(final IAEItemStack[] items, final List<String> lines, String label,
+    private boolean addInformation(final IAEStack<?>[] items, final List<String> lines, String label,
         EnumChatFormatting color) {
         final ItemStack unknownItem = new ItemStack(Blocks.fire);
+        unknownItem.setStackDisplayName(GuiText.UnknownItem.getLocal());
         boolean recipeIsBroken = false;
         boolean first = true;
-        List<IAEItemStack> sortedItems = new ArrayList<>(items.length);
-        for (IAEItemStack item : items) {
-            sortedItems.add(item);
+        List<IAEStack<?>> sortedItems = new ArrayList<>(items.length);
+        for (IAEStack<?> item : items) {
+            if (item != null) {
+                sortedItems.add(item);
+            }
         }
         sortedItems.sort(
-            Comparator.comparingLong(IAEItemStack::getStackSize)
+            Comparator.<IAEStack<?>>comparingLong(IAEStack::getStackSize)
                 .reversed());
-        boolean isFluid = false;
 
-        for (final IAEItemStack item : sortedItems) {
+        for (final IAEStack<?> item : sortedItems) {
 
-            if (!recipeIsBroken && item.equals(unknownItem)) {
+            if (!recipeIsBroken && item instanceof IAEItemStack itemStack && itemStack.equals(unknownItem)) {
                 recipeIsBroken = true;
             }
 
-            if (item.getItemStack()
-                .getItem() instanceof ItemFluidDrop) {
-                label = EnumChatFormatting.GOLD + label;
-                color = EnumChatFormatting.GOLD;
-                isFluid = true;
-            }
+            final boolean isFluid = item.isFluid();
+            final String displayName = item.isItem() ? Util.getDisplayName((IAEItemStack) item) : item.getDisplayName();
+            final String unit = item.getStackType()
+                .getDisplayUnit();
 
             if (first) {
                 lines.add(label);
@@ -145,10 +161,10 @@ public class EncodedPattern extends mcp.mobius.waila.handlers.nei.TooltipHandler
                         + NumberFormat.getNumberInstance(Locale.US)
                             .format(item.getStackSize())
                         + EnumChatFormatting.RESET
-                        + (isFluid ? EnumChatFormatting.WHITE + "L " : " ")
+                        + (isFluid ? EnumChatFormatting.WHITE + unit + " " : " ")
                         + EnumChatFormatting.RESET
                         + color
-                        + Util.getDisplayName(item));
+                        + displayName);
             }
             if (!first) {
                 lines.add(
@@ -156,10 +172,10 @@ public class EncodedPattern extends mcp.mobius.waila.handlers.nei.TooltipHandler
                         + NumberFormat.getNumberInstance(Locale.US)
                             .format(item.getStackSize())
                         + EnumChatFormatting.RESET
-                        + (isFluid ? EnumChatFormatting.WHITE + "L " : " ")
+                        + (isFluid ? EnumChatFormatting.WHITE + unit + " " : " ")
                         + EnumChatFormatting.RESET
                         + color
-                        + Util.getDisplayName(item));
+                        + displayName);
             }
 
             first = false;

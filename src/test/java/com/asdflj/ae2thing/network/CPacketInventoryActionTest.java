@@ -2,10 +2,12 @@ package com.asdflj.ae2thing.network;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Proxy;
 
 import org.junit.Test;
 import org.objectweb.asm.ClassReader;
@@ -13,6 +15,9 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+
+import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.storage.data.IAEStack;
 
 public class CPacketInventoryActionTest {
 
@@ -61,5 +66,50 @@ public class CPacketInventoryActionTest {
         assertTrue(genericStackField[0]);
         assertEquals(1, genericWrites[0]);
         assertEquals(1, genericReads[0]);
+    }
+
+    @Test
+    public void keepsNativeFluidCraftingTargetNative() {
+        final IAEFluidStack nativeFluid = nativeFluid(0, true, 4, 2);
+
+        final IAEStack<?> normalized = CPacketInventoryAction.normalizeCraftingStack(nativeFluid);
+
+        assertSame(nativeFluid, normalized);
+        assertTrue(normalized instanceof IAEFluidStack);
+        final IAEFluidStack fluid = (IAEFluidStack) normalized;
+        assertEquals(0, fluid.getStackSize());
+        assertTrue(fluid.isCraftable());
+        assertEquals(4, fluid.getCountRequestable());
+        assertEquals(2, fluid.getCountRequestableCrafts());
+    }
+
+    @Test
+    public void keepsLargeNativeFluidCraftingAmountWithoutNarrowingToItemCount() {
+        final IAEFluidStack nativeFluid = nativeFluid(3_000_000_000L, false, 0, 0);
+
+        final IAEStack<?> normalized = CPacketInventoryAction.normalizeCraftingStack(nativeFluid);
+
+        assertTrue(normalized instanceof IAEFluidStack);
+        assertEquals(3_000_000_000L, normalized.getStackSize());
+    }
+
+    private static IAEFluidStack nativeFluid(long amount, boolean craftable, long requestable, long crafts) {
+        return (IAEFluidStack) Proxy.newProxyInstance(
+            IAEFluidStack.class.getClassLoader(),
+            new Class<?>[] { IAEFluidStack.class },
+            (proxy, method, args) -> {
+                switch (method.getName()) {
+                    case "getStackSize":
+                        return amount;
+                    case "isCraftable":
+                        return craftable;
+                    case "getCountRequestable":
+                        return requestable;
+                    case "getCountRequestableCrafts":
+                        return crafts;
+                    default:
+                        throw new AssertionError("Native fluid normalization should not require " + method.getName());
+                }
+            });
     }
 }

@@ -47,6 +47,7 @@ import com.asdflj.ae2thing.util.InterfaceTerminalNames;
 import com.asdflj.ae2thing.util.InterfaceTerminalSearch;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.NeCharUtil;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.asdflj.ae2thing.util.Util;
 import com.glodblock.github.client.gui.GuiFCImgButton;
 
@@ -55,7 +56,11 @@ import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.config.YesNo;
+import appeng.api.implementations.ICraftingPatternItem;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.util.DimensionalCoord;
 import appeng.client.gui.IInterfaceTerminalPostUpdate;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -75,7 +80,6 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInterfaceTerminalUpdate;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.helpers.InventoryAction;
-import appeng.helpers.PatternHelper;
 import appeng.integration.IntegrationRegistry;
 import appeng.integration.IntegrationType;
 import appeng.items.misc.ItemEncodedPattern;
@@ -125,7 +129,6 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
     private static final float SLOT_HOVER_Z = 310.0f;
     private static final float TOOLTIP_Z = 410.0f;
     private static final float STEP_Z = 10.0f;
-    private static final float MAGIC_RENDER_ITEM_Z = 50.0f;
 
     protected int offsetY;
 
@@ -635,19 +638,23 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                     && relMouseY < Math.min(viewY + rowYBot, viewHeight);
                 if (stack != null) {
                     final ItemEncodedPattern iep = (ItemEncodedPattern) stack.getItem();
-                    final ItemStack toRender = iep.getOutput(stack);
+                    final IAEStack<?> encodedOutput = PatternStackCodec.normalize(iep.getOutputAE(stack));
+                    // Keep invalid patterns visible and hoverable even when no output can
+                    // be decoded, so the invalid overlay and tooltip remain available.
+                    final IAEStack<?> output = encodedOutput == null ? AEItemStack.create(stack) : encodedOutput;
 
                     GL11.glPushMatrix();
                     GL11.glTranslatef(colLeft, viewY + rowYTop + 1, ITEM_STACK_Z);
+                    GL11.glPushAttrib(
+                        GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_LIGHTING_BIT | GL11.GL_CURRENT_BIT);
                     GL11.glEnable(GL12.GL_RESCALE_NORMAL);
                     RenderHelper.enableGUIStandardItemLighting();
-                    translatedRenderItem.zLevel = ITEM_STACK_Z - MAGIC_RENDER_ITEM_Z;
-                    translatedRenderItem
-                        .renderItemAndEffectIntoGUI(fontRendererObj, mc.getTextureManager(), toRender, 0, 0);
+                    // A native fluid stack draws only its icon. The NEI display item can
+                    // draw an NBT-encoded quantity even with ItemStack.stackSize set to one.
+                    output.drawInGui(mc, 0, 0);
+                    output.drawOverlayInGui(mc, 0, 0, true, true, false, false);
+                    GL11.glPopAttrib();
                     GL11.glTranslatef(0.0f, 0.0f, ITEM_STACK_OVERLAY_Z);
-                    aeRenderItem.setAeStack(AEItemStack.create(toRender));
-                    aeRenderItem.renderItemOverlayIntoGUI(fontRendererObj, mc.getTextureManager(), toRender, 0, 0);
-                    aeRenderItem.zLevel = 0.0f;
                     RenderHelper.disableStandardItemLighting();
                     if (!tooltip) {
                         if (entry.slotIsBroken(slotIdx)) {
@@ -969,15 +976,29 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
         for (int i = 0; i < tags.tagCount(); i++) {
             final NBTTagCompound tag = tags.getCompoundTagAt(i);
-            final ItemStack parsedItemStack = ItemStack.loadItemStackFromNBT(tag);
+            // Modern ultimate patterns store fluids as generic AE stacks. Loading every
+            // entry as an ItemStack makes those entries look unknown and prevents searching
+            // by their fluid name.
+            final IAEStack<?> parsedStack;
+            try {
+                parsedStack = Platform.readStackNBT(tag, true);
+            } catch (final Throwable ignored) {
+                // Keep malformed entries searchable as "unknown" without breaking the
+                // rest of the terminal list.
+                if (containsInvalidDisplayName && !tag.hasNoTags()) {
+                    return true;
+                }
+                continue;
+            }
 
-            if (parsedItemStack != null) {
-                final String displayName = Platform.getItemDisplayName(
-                    AEApi.instance()
-                        .storage()
-                        .createItemStack(parsedItemStack))
-                    .toLowerCase();
-                if (NeCharUtil.INSTANCE.contains(searchTerm, displayName)) {
+            if (parsedStack != null) {
+                final String displayName = parsedStack instanceof IAEItemStack item ? Platform.getItemDisplayName(item)
+                    : parsedStack.getDisplayName();
+                if (displayName == null) {
+                    continue;
+                }
+                final String normalizedDisplayName = displayName.toLowerCase();
+                if (NeCharUtil.INSTANCE.contains(searchTerm, normalizedDisplayName)) {
                     return true;
                 }
             } else if (containsInvalidDisplayName && !tag.hasNoTags()) {
@@ -1004,10 +1025,23 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             return false;
         }
 
+        final ItemStack candidate = itemStack.copy();
+        if (candidate.stackTagCompound != null) {
+            // PatternHelper/UltimatePatternHelper cache parse failures by writing this flag
+            // into the supplied stack. Never let a client-side validation pass mutate the
+            // terminal entry, and discard a stale flag before revalidating with its own item
+            // parser.
+            candidate.stackTagCompound.removeTag("InvalidPattern");
+        }
+
+        if (!(candidate.getItem() instanceof ICraftingPatternItem patternItem)) {
+            return true;
+        }
+
         try {
-            new PatternHelper(itemStack, w);
-            return false;
-        } catch (final Throwable t) {
+            final ICraftingPatternDetails details = patternItem.getPatternForItem(candidate, w);
+            return details == null;
+        } catch (final Throwable ignored) {
             return true;
         }
     }
@@ -1494,6 +1528,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         private void setItemInSlot(ItemStack stack, int idx) {
             if (idx < 0 || idx >= numSlots) return;
             try {
+                stack = clearStalePatternFlag(stack);
                 final int oldHasItem = inv.getStackInSlot(idx) != null ? 1 : 0;
                 final int newHasItem = stack != null ? 1 : 0;
 
@@ -1506,6 +1541,35 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             } catch (Exception e) {
                 AELog.error(e);
             }
+        }
+
+        /**
+         * AE's pattern helpers mark the supplied stack with InvalidPattern when a legacy
+         * parser encounters a modern generic fluid entry. The server entry may therefore
+         * contain a stale client-side marker even though the item's own parser accepts it.
+         * Validate a copy and only replace the displayed copy when the native parser succeeds.
+         */
+        private ItemStack clearStalePatternFlag(final ItemStack stack) {
+            if (stack == null || !(stack.getItem() instanceof ICraftingPatternItem patternItem)
+                || stack.getTagCompound() == null
+                || !stack.getTagCompound()
+                    .getBoolean("InvalidPattern")) {
+                return stack;
+            }
+
+            final World world = CommonHelper.proxy.getWorld();
+            if (world == null) return stack;
+
+            final ItemStack candidate = stack.copy();
+            candidate.stackTagCompound.removeTag("InvalidPattern");
+            try {
+                if (patternItem.getPatternForItem(candidate, world) != null) {
+                    return candidate;
+                }
+            } catch (final Throwable ignored) {
+                // Preserve the original marker for genuinely malformed patterns.
+            }
+            return stack;
         }
 
         public boolean hasBrokenSlot() {

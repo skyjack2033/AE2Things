@@ -41,6 +41,12 @@ public interface IAEBasePanel extends IDraggable {
         return false;
     }
 
+    /**
+     * Handles a virtual-slot interaction while the mouse is being dragged across slots.
+     * AE's monitor GUI uses this for Shift/Space transfers.
+     */
+    default void handleDragVirtualSlot(VirtualMESlot slot, int mouseButton) {}
+
     boolean actionPerformed(GuiButton btn);
 
     void mouseClickMove(final int x, final int y, final int c, final long d);

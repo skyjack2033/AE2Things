@@ -19,17 +19,18 @@ import com.asdflj.ae2thing.client.gui.container.ContainerPatternModifier;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotEncodedPatternInput;
 import com.asdflj.ae2thing.network.CPacketInventoryActionExtend;
 import com.asdflj.ae2thing.util.NameConst;
+import com.asdflj.ae2thing.util.PatternModifierStacks;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.core.localization.ColorUtils;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketClickOrDragFakeSlot;
-import appeng.util.Platform;
 import codechicken.nei.VisiblityData;
 import codechicken.nei.api.INEIGuiHandler;
 import codechicken.nei.api.TaggedInventoryArea;
@@ -118,11 +119,13 @@ public class GuiPatternModifier extends AEBaseGui implements INEIGuiHandler {
                 .getItem() instanceof ICraftingPatternItem cr
             && this.container.getSource() != null) {
             ItemStack item = this.container.getSource();
-            ICraftingPatternDetails details = cr
-                .getPatternForItem(s.getStack(), this.container.getInventoryPlayer().player.worldObj);
+            ICraftingPatternDetails details = cr.getPatternForItem(
+                s.getStack()
+                    .copy(),
+                this.container.getInventoryPlayer().player.worldObj);
             if (details != null) {
-                if (drawSlotBG(details.getInputs(), item, s)) return;
-                if (drawSlotBG(details.getOutputs(), item, s)) return;
+                if (matchesSource(details.getAEInputs(), item)) return;
+                if (matchesSource(details.getAEOutputs(), item)) return;
                 this.zLevel = 100.0F;
                 itemRender.zLevel = 100.0F;
                 GL11.glDisable(GL11.GL_LIGHTING);
@@ -139,11 +142,11 @@ public class GuiPatternModifier extends AEBaseGui implements INEIGuiHandler {
         }
     }
 
-    private boolean drawSlotBG(IAEItemStack[] list, ItemStack item, Slot s) {
-        for (IAEItemStack is : list) {
-            if (is == null) continue;
-            ItemStack i = is.getItemStack();
-            if (Platform.isSameItemPrecise(i, item)) {
+    private boolean matchesSource(IAEStack<?>[] list, ItemStack item) {
+        IAEStack<?> target = PatternStackCodec.toPatternStack(item);
+        if (target == null) return false;
+        for (IAEStack<?> is : list) {
+            if (PatternModifierStacks.matches(is, target)) {
                 return true;
             }
         }

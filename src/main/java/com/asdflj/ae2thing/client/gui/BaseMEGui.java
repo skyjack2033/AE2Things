@@ -130,11 +130,27 @@ public abstract class BaseMEGui extends AEBaseGui implements IGuiSelection {
                 IAEFluidStack fluid = slot.getAEStack() instanceof IAEFluidStack afs ? afs
                     : item != null && item.getItem() instanceof ItemFluidDrop ? ItemFluidDrop.getAeFluidStack(item)
                         : null;
+                // AE uses the pick-block button for AUTO_CRAFT, including fluids that also have
+                // a stored amount. Do not consume that click as a container extraction.
+                if (fluid != null && fluid.isCraftable() && mouseButton == CLICK_MODE_PICK_BLOCK) {
+                    return false;
+                }
                 if (fluid != null && fluid.getStackSize() != 0 && (cs == null || isEmptyContainer(cs, fluid))) {
                     AE2Thing.proxy.netHandler.sendToServer(new CPacketFluidUpdate(fluid, isShiftKeyDown()));
                     return true;
                 } else if (ctrlDown == 1 && isFilledContainer(cs)) {
                     AE2Thing.proxy.netHandler.sendToServer(new CPacketFluidUpdate(null, isShiftKeyDown()));
+                    return true;
+                }
+                // A zero-sized fluid stack is AE's craftable marker. Keep the marker click available
+                // for AUTO_CRAFT (normal click or pick-block), but still consume
+                // non-craftable/placement clicks so they cannot fall through as an item action with a
+                // null target stack.
+                if (fluid != null && fluid.getStackSize() == 0) {
+                    if (fluid.isCraftable()
+                        && (mouseButton == CLICK_MODE_NORMAL || mouseButton == CLICK_MODE_PICK_BLOCK)) {
+                        return false;
+                    }
                     return true;
                 }
                 if (fluid != null && mouseButton != 3) {

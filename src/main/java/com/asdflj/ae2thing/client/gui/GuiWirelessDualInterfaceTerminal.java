@@ -1,5 +1,7 @@
 package com.asdflj.ae2thing.client.gui;
 
+import static net.minecraft.client.gui.GuiScreen.isShiftKeyDown;
+
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
@@ -205,6 +207,24 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
             if (panel.handleVirtualSlotClick(slot, mouseButton)) return true;
         }
         return super.handleVirtualSlotClick(slot, mouseButton);
+    }
+
+    @Override
+    protected void handleDragVirtualSlot(VirtualMESlot slot, int mouseButton) {
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive()) {
+                panel.handleDragVirtualSlot(slot, mouseButton);
+            }
+        }
+        super.handleDragVirtualSlot(slot, mouseButton);
+    }
+
+    @Override
+    protected boolean canDragVirtualSlot(VirtualMESlot slot, ItemStack holding) {
+        if (slot instanceof VirtualMEMonitorableSlot && (Keyboard.isKeyDown(Keyboard.KEY_SPACE) || isShiftKeyDown())) {
+            return true;
+        }
+        return super.canDragVirtualSlot(slot, holding);
     }
 
     @Override
