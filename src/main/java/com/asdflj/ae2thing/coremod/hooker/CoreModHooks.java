@@ -9,6 +9,7 @@ import com.asdflj.ae2thing.common.tile.TileExIOPort;
 import com.asdflj.ae2thing.common.tile.TileInfusionInterface;
 import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.inventory.EssentiaInventoryAdaptor;
+import com.asdflj.ae2thing.inventory.ProgrammableHatchInventoryAdaptor;
 import com.asdflj.ae2thing.inventory.ThaumatoriumInventoryAdapter;
 
 import appeng.api.parts.IPart;
@@ -22,6 +23,10 @@ public class CoreModHooks {
     public static InventoryAdaptor getAdaptor(Object target, ForgeDirection face) {
         if (!(target instanceof TileEntity tile) || face == null) {
             return InventoryAdaptor.getAdaptor(target, face);
+        }
+        InventoryAdaptor programmableHatch = ProgrammableHatchInventoryAdaptor.tryCreate(tile, face);
+        if (programmableHatch != null) {
+            return programmableHatch;
         }
         TileEntity inter = tile.getWorldObj()
             .getTileEntity(tile.xCoord + face.offsetX, tile.yCoord + face.offsetY, tile.zCoord + face.offsetZ);

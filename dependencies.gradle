@@ -1,10 +1,10 @@
 dependencies {
-    api("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1050-GTNH:dev")
-    api("com.github.GTNewHorizons:AE2FluidCraft-Rework:1.5.106-gtnh:dev") {
+    api("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1080-GTNH:dev")
+    api("com.github.GTNewHorizons:AE2FluidCraft-Rework:1.5.113-gtnh:dev") {
         exclude group: "com.github.GTNewHorizons", module: "Applied-Energistics-2-Unofficial"
     }
-    api("com.github.GTNewHorizons:NotEnoughItems:2.8.130-GTNH:dev")
-    api("com.github.GTNewHorizons:GTNHLib:0.11.46:dev") { transitive = false }
+    api("com.github.GTNewHorizons:NotEnoughItems:2.8.155-GTNH:dev")
+    api("com.github.GTNewHorizons:GTNHLib:0.11.52:dev") { transitive = false }
 
     compileOnlyApi("com.github.GTNewHorizons:ae2stuff:0.10.19-GTNH:dev")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:ae2stuff:0.10.19-GTNH:dev")
@@ -13,13 +13,13 @@ dependencies {
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:waila:1.19.34:dev")
     compileOnlyApi("com.github.GTNewHorizons:WirelessCraftingTerminal:1.12.16:dev")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:WirelessCraftingTerminal:1.12.16:dev")
-    compileOnlyApi("com.github.GTNewHorizons:FindIt:1.4.6:dev")
-    devOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughEnergistics:1.7.41:dev")
+    compileOnlyApi("com.github.GTNewHorizons:FindIt:1.4.7:dev")
+    devOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughEnergistics:1.7.46:dev")
 
     compileOnlyApi("com.github.GTNewHorizons:AdventureBackpack2:1.4.26-GTNH:dev")
-    compileOnlyApi("com.github.GTNewHorizons:Minecraft-Backpack-Mod:2.6.17-GTNH:dev")
-    compileOnlyApi("com.github.GTNewHorizons:ForestryMC:4.11.37:dev")
-    compileOnlyApi("com.github.GTNewHorizons:TinkersConstruct:1.14.108-GTNH:dev")
+    compileOnlyApi("com.github.GTNewHorizons:Minecraft-Backpack-Mod:2.6.18-GTNH:dev")
+    compileOnlyApi("com.github.GTNewHorizons:ForestryMC:4.11.39:dev")
+    compileOnlyApi("com.github.GTNewHorizons:TinkersConstruct:1.14.118-GTNH:dev")
 
     // Transitive API supertypes referenced by classes we touch:
     // Forestry's ItemBackpack now implements NoHotbarNeeded's ActivatableFromInventoryServerSide,
@@ -29,24 +29,24 @@ dependencies {
     compileOnly("curse.maven:rotarycraft-235596:4721191")
 
     compileOnlyApi("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
-    compileOnlyApi("com.github.GTNewHorizons:ThaumicEnergistics:1.7.60-GTNH:dev") { transitive = false }
+    compileOnlyApi("com.github.GTNewHorizons:ThaumicEnergistics:1.7.64-GTNH:dev") { transitive = false }
     compileOnlyApi("com.github.GTNewHorizons:thaumicinsurgence:0.4.1:dev") { transitive = false }
-    compileOnlyApi("com.github.GTNewHorizons:AspectRecipeIndex:1.1.4:dev")
+    compileOnlyApi("com.github.GTNewHorizons:AspectRecipeIndex:1.1.5:dev")
 
-    compileOnlyApi("com.github.GTNewHorizons:GT5-Unofficial:5.09.54.133:dev") {
+    compileOnlyApi("com.github.GTNewHorizons:GT5-Unofficial:5.09.54.205:dev") {
         exclude group: "com.github.GTNewHorizons", module: "Applied-Energistics-2-Unofficial"
         exclude group: "com.github.GTNewHorizons", module: "AE2FluidCraft-Rework"
     }
-    compileOnlyApi("com.github.GTNewHorizons:BlockRenderer6343:1.4.21:dev")
-    compileOnlyApi("com.github.GTNewHorizons:NewHorizonsCoreMod:2.9.61:dev")
-    compileOnlyApi("com.github.GTNewHorizons:nei-custom-diagram:1.8.34:dev") { transitive = false }
+    compileOnlyApi("com.github.GTNewHorizons:BlockRenderer6343:1.4.24:dev")
+    compileOnlyApi("com.github.GTNewHorizons:NewHorizonsCoreMod:2.9.84:dev")
+    compileOnlyApi("com.github.GTNewHorizons:nei-custom-diagram:1.8.36:dev") { transitive = false }
 
-    compileOnlyApi("com.github.GTNewHorizons:Baubles-Expanded:2.2.22-GTNH:dev")
-    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Baubles-Expanded:2.2.22-GTNH:dev")
-    compileOnlyApi("com.github.GTNewHorizons:Hodgepodge:2.7.196:dev") { transitive = false }
-    compileOnlyApi("com.github.GTNewHorizons:BetterP2P:1.4.7:dev")
-    compileOnlyApi("com.github.GTNewHorizons:Angelica:2.2.10:dev")
-    compileOnlyApi("com.github.GTNewHorizons:Botania:1.13.34-GTNH:dev") { transitive = false }
+    compileOnlyApi("com.github.GTNewHorizons:Baubles-Expanded:2.2.25-GTNH:dev")
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Baubles-Expanded:2.2.25-GTNH:dev")
+    compileOnlyApi("com.github.GTNewHorizons:Hodgepodge:2.7.215:dev") { transitive = false }
+    compileOnlyApi("com.github.GTNewHorizons:BetterP2P:1.4.8:dev")
+    compileOnlyApi("com.github.GTNewHorizons:Angelica:2.2.28:dev")
+    compileOnlyApi("com.github.GTNewHorizons:Botania:1.13.37-GTNH:dev") { transitive = false }
     compileOnlyApi("com.github.Shigure-Ruiseki:OKBackpack:26.06.26.0:dev")
     compileOnlyApi("com.github.Shigure-Ruiseki:OKCore:26.06.22.1:dev") { transitive = false }
 
@@ -68,23 +68,23 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     // Inspect the pinned NEI handler bytecode without making Botania a required runtime mod.
-    testRuntimeOnly("com.github.GTNewHorizons:Botania:1.13.34-GTNH:dev") { transitive = false }
-    testRuntimeOnly("com.github.GTNewHorizons:GT5-Unofficial:5.09.54.133:dev") { transitive = false }
+    testRuntimeOnly("com.github.GTNewHorizons:Botania:1.13.37-GTNH:dev") { transitive = false }
+    testRuntimeOnly("com.github.GTNewHorizons:GT5-Unofficial:5.09.54.205:dev") { transitive = false }
 }
 
 configurations.configureEach {
     resolutionStrategy {
-        force "com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1050-GTNH"
-        force "com.github.GTNewHorizons:AE2FluidCraft-Rework:1.5.106-gtnh"
-        force "com.github.GTNewHorizons:GTNHLib:0.11.46"
-        force "com.github.GTNewHorizons:GT5-Unofficial:5.09.54.133"
-        force "com.github.GTNewHorizons:NotEnoughItems:2.8.130-GTNH"
-        force "com.github.GTNewHorizons:ThaumicEnergistics:1.7.60-GTNH"
+        force "com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1080-GTNH"
+        force "com.github.GTNewHorizons:AE2FluidCraft-Rework:1.5.113-gtnh"
+        force "com.github.GTNewHorizons:GTNHLib:0.11.52"
+        force "com.github.GTNewHorizons:GT5-Unofficial:5.09.54.205"
+        force "com.github.GTNewHorizons:NotEnoughItems:2.8.155-GTNH"
+        force "com.github.GTNewHorizons:ThaumicEnergistics:1.7.64-GTNH"
         force "com.github.GTNewHorizons:waila:1.19.34"
         force "com.github.GTNewHorizons:WirelessCraftingTerminal:1.12.16"
-        force "com.github.GTNewHorizons:Baubles-Expanded:2.2.22-GTNH"
-        force "com.github.GTNewHorizons:Hodgepodge:2.7.196"
-        force "com.github.GTNewHorizons:lwjgl3ify:3.0.31"
+        force "com.github.GTNewHorizons:Baubles-Expanded:2.2.25-GTNH"
+        force "com.github.GTNewHorizons:Hodgepodge:2.7.215"
+        force "com.github.GTNewHorizons:lwjgl3ify:3.0.37"
     }
 
 
