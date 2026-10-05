@@ -89,7 +89,8 @@ public class CPacketPatternValueSet implements IMessage {
                         if (slot == null || !(slot instanceof SlotFake) || slot.getStack() == null) {
                             return null;
                         }
-                        ItemStack stack = slot.getStack().copy();
+                        ItemStack stack = slot.getStack()
+                            .copy();
                         if (Util.isFluidPacket(stack)) {
                             FluidStack fluidStack = ItemFluidPacket.getFluidStack(stack);
                             if (fluidStack != null) {
