@@ -190,6 +190,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
                 delegateContainer.doAction(player, action, slotId, id);
             } else if (id == -1) {
                 Slot s = this.inventorySlots.get(slotId);
+                if (s == null) return;
                 if (((s instanceof SlotPatternFake) || (s instanceof SlotFakeCraftingMatrix)
                     || (s instanceof SlotPatternTerm))) {
                     if (action == InventoryAction.MOVE_REGION) {
@@ -508,6 +509,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
 
     private void placePattern(int slot, IInterfaceViewable host) {
         Slot output = this.patternPanel.getPatternOutputSlot();
+        if (output == null) return;
         PatternUpload.moveToSlot(output.inventory, output.getSlotIndex(), host.getPatterns(), slot, host.numSlots());
         // Also refresh after a rejected upload, e.g. when another player filled the selected slot.
         this.sendToClient(host);

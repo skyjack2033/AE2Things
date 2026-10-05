@@ -220,6 +220,7 @@ public class GuiFluidPacketEncoder extends AEBaseGui implements INEIGuiHandler {
         FluidStack fluidStack = Util.getFluidFromItem(draggedStack);
         if (fluidStack != null) {
             SlotFake slot = cvb.getConfigSlot();
+            if (slot == null) return false;
             if (getSlotArea(slot).contains(mouseX, mouseY)) {
                 slot.putStack(draggedStack);
                 NetworkHandler.instance

@@ -252,14 +252,17 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     @Override
     public void mouseClicked(int xCoord, int yCoord, int btn) {
         this.saveSearchString();
-        this.searchField.mouseClicked(xCoord, yCoord, btn);
-        if (btn == 1 && this.searchField.isMouseIn(xCoord, yCoord)) {
-            setSearchString("", true);
+        if (this.searchField != null) {
+            this.searchField.mouseClicked(xCoord, yCoord, btn);
+            if (btn == 1 && this.searchField.isMouseIn(xCoord, yCoord)) {
+                setSearchString("", true);
+            }
         }
         this.scrollbar.click(this.parent, xCoord - this.parent.getGuiLeft(), yCoord - this.parent.getGuiTop());
     }
 
     public void setSearchString(String memoryText, boolean updateView) {
+        if (this.searchField == null) return;
         this.searchField.setText(memoryText);
         this.repo.setSearchString(memoryText);
         if (updateView) {
@@ -285,7 +288,7 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
 
     @Override
     public void setTextFieldValue(String displayName, int mousex, int mousey, ItemStack stack) {
-        if (!searchField.isMouseIn(mousex, mousey)) return;
+        if (this.searchField == null || !searchField.isMouseIn(mousex, mousey)) return;
         if (Mods.THAUMIC_ENERGISTICS.isModLoaded() && AspectUtil.getAspectFromJar(stack) != null) {
             setSearchString(
                 Objects.requireNonNull(AspectUtil.getAspectFromJar(stack))

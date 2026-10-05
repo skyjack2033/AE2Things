@@ -86,21 +86,21 @@ public class CPacketPatternValueSet implements IMessage {
                         if (message.valueIndex < 0 || message.valueIndex >= player.openContainer.inventorySlots.size())
                             return null;
                         Slot slot = player.openContainer.getSlot(message.valueIndex);
-                        if (slot instanceof SlotFake && slot.getStack() != null) {
-                            ItemStack stack = slot.getStack()
-                                .copy();
-                            if (Util.isFluidPacket(stack)) {
-                                FluidStack fluidStack = ItemFluidPacket.getFluidStack(stack);
-                                if (fluidStack != null) {
-                                    fluidStack = Objects.requireNonNull(ItemFluidPacket.getFluidStack(stack))
-                                        .copy();
-                                    fluidStack.amount = message.amount;
-                                }
-                                slot.putStack(ItemFluidPacket.newStack(fluidStack));
-                            } else {
-                                stack.stackSize = message.amount;
-                                slot.putStack(stack);
+                        if (slot == null || !(slot instanceof SlotFake) || slot.getStack() == null) {
+                            return null;
+                        }
+                        ItemStack stack = slot.getStack().copy();
+                        if (Util.isFluidPacket(stack)) {
+                            FluidStack fluidStack = ItemFluidPacket.getFluidStack(stack);
+                            if (fluidStack != null) {
+                                fluidStack = Objects.requireNonNull(ItemFluidPacket.getFluidStack(stack))
+                                    .copy();
+                                fluidStack.amount = message.amount;
                             }
+                            slot.putStack(ItemFluidPacket.newStack(fluidStack));
+                        } else {
+                            stack.stackSize = message.amount;
+                            slot.putStack(stack);
                         }
                     }
                 }
