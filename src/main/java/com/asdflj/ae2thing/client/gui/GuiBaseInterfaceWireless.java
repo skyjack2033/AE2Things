@@ -489,7 +489,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         Iterator<InterfaceWirelessEntry> visible = section.getVisible();
         while (visible.hasNext()) {
             InterfaceWirelessEntry entry = visible.next();
-            if (viewY + renderY + entry.rows * 18 + 1 > 0 && viewY + renderY < viewHeight) {
+            // Use actualRows for rendering height calculation
+            int actualRows = (int) Math.ceil((double) entry.numSlots / entry.rowSize);
+            if (viewY + renderY + actualRows * 18 + 1 > 0 && viewY + renderY < viewHeight) {
                 renderY += drawEntry(
                     entry,
                     viewY + InterfaceWirelessSection.TITLE_HEIGHT + renderY,
@@ -499,7 +501,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             } else {
                 entry.dispY = -9999;
                 entry.optionsButton.yPosition = -1;
-                renderY += entry.rows * 18 + 1;
+                renderY += actualRows * 18 + 1;
             }
         }
         bindTexture(BACKGROUND);
@@ -553,7 +555,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
         entry.dispY = viewY;
         /* PASS 1: BG */
-        for (int row = 0; row < entry.rows; ++row) {
+        // Calculate actual rows based on numSlots for super patterns (GT Not Leisure)
+        final int actualRows = (int) Math.ceil((double) entry.numSlots / entry.rowSize);
+        for (int row = 0; row < actualRows; ++row) {
             final int rowYTop = row * 18;
             final int rowYBot = rowYTop + 18;
 
@@ -617,7 +621,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         }
         /* PASS 2: Items */
         boolean drawHighlightSlot = true;
-        for (int row = 0; row < entry.rows; ++row) {
+        for (int row = 0; row < actualRows; ++row) {
             final int rowYTop = row * 18;
             final int rowYBot = rowYTop + 18;
             /* Is the slot row in view? */
@@ -1486,7 +1490,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         private void resize(int rows, int rowSize, int numSlots) {
             this.rows = Math.max(0, rows);
             this.rowSize = Math.max(1, rowSize);
-            this.numSlots = Math.max(0, Math.min(numSlots, this.rows * this.rowSize));
+            // Don't limit numSlots by rows * rowSize - for GT Not Leisure super patterns (360 slots),
+            // the actual slot count should be preserved
+            this.numSlots = Math.max(0, numSlots);
             AppEngInternalInventory previous = this.inv;
             this.inv = new AppEngInternalInventory(null, this.numSlots, 1);
             this.brokenRecipes = new Boolean[this.numSlots];
@@ -1497,7 +1503,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                     setItemInSlot(previous.getStackInSlot(i), i);
                 }
             }
-            this.guiHeight = 18 * this.rows + 1;
+            // Recalculate guiHeight based on actual numSlots, not just rows
+            int actualRows = (int) Math.ceil((double) this.numSlots / this.rowSize);
+            this.guiHeight = actualRows * 18 + 1;
         }
 
         public void fullItemUpdate(NBTTagList items) {

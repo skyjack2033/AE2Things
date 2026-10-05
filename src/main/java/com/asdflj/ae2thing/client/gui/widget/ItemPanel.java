@@ -345,12 +345,24 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
                     -2,
                     aeStack));
         } else if (action != null) {
-            if (itemStack != null && itemStack.getItem() instanceof ItemFluidDrop) itemStack = null;
+            // ItemFluidDrop handling may have changed in 290 - make it safer
+            if (itemStack != null && isFluidDropItem(itemStack.getItemStack())) {
+                itemStack = null;
+            }
             this.inventorySlots.setTargetStack(itemStack);
             final PacketMonitorableAction p = new PacketMonitorableAction(action, -1);
             NetworkHandler.instance.sendToServer(p);
         }
         return true;
+    }
+
+    private static boolean isFluidDropItem(ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return false;
+        try {
+            return stack.getItem() instanceof ItemFluidDrop;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     @Override
@@ -553,7 +565,8 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     @Override
     public void postStackUpdate(List<? extends IAEStack<?>> list) {
         for (IAEStack<?> stack : list) {
-            if (stack instanceof IAEItemStack item && item.getItem() instanceof ItemFluidDrop) continue;
+            // ItemFluidDrop handling may have changed in 290 - make it safer
+            if (stack instanceof IAEItemStack item && isFluidDropItem(item.getItemStack())) continue;
             this.repo.postUpdate(stack);
         }
         this.repo.updateView();

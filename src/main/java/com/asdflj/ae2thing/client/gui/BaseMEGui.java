@@ -120,6 +120,20 @@ public abstract class BaseMEGui extends AEBaseGui implements IGuiSelection {
             || (Mods.HBM_AE_ADDON.isModLoaded() && HBMAeAddonUtil.getItemIsEmptyContainer(is, fs));
     }
 
+    /**
+     * Get fluid from IAEItemStack, handling ItemFluidDrop changes in 290 version.
+     */
+    private IAEFluidStack getFluidFromItemOrDrop(IAEItemStack item) {
+        if (item == null) return null;
+        // Fallback for ItemFluidDrop - may have changed in 290
+        try {
+            if (item.getItem() instanceof ItemFluidDrop drop) {
+                return drop.getAeFluidStack(item);
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
     @SideOnly(Side.CLIENT)
     public boolean updateFluidContainer(VirtualMESlot slot, int ctrlDown, int mouseButton) {
         final EntityPlayer player = Minecraft.getMinecraft().thePlayer;
@@ -127,9 +141,7 @@ public abstract class BaseMEGui extends AEBaseGui implements IGuiSelection {
             try {
                 ItemStack cs = player.inventory.getItemStack();
                 IAEItemStack item = slot.getAEStack() instanceof IAEItemStack ais ? ais : null;
-                IAEFluidStack fluid = slot.getAEStack() instanceof IAEFluidStack afs ? afs
-                    : item != null && item.getItem() instanceof ItemFluidDrop ? ItemFluidDrop.getAeFluidStack(item)
-                        : null;
+                IAEFluidStack fluid = getFluidFromItemOrDrop(item);
                 // AE uses the pick-block button for AUTO_CRAFT, including fluids that also have
                 // a stored amount. Do not consume that click as a container extraction.
                 if (fluid != null && fluid.isCraftable() && mouseButton == CLICK_MODE_PICK_BLOCK) {
