@@ -28,7 +28,6 @@ import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.AspectUtil;
 import com.asdflj.ae2thing.util.TerminalViewMode;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.config.SearchBoxMode;
 import appeng.api.config.Settings;
@@ -339,24 +338,11 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
             this.inventorySlots.setTargetStack(aeStack);
             NetworkHandler.instance.sendToServer(new PacketMonitorableAction(MonitorableAction.AUTO_CRAFT, -1));
         } else if (action != null) {
-            // ItemFluidDrop handling may have changed in 290 - make it safer
-            if (itemStack != null && isFluidDropItem(itemStack.getItemStack())) {
-                itemStack = null;
-            }
             this.inventorySlots.setTargetStack(itemStack);
             final PacketMonitorableAction p = new PacketMonitorableAction(action, -1);
             NetworkHandler.instance.sendToServer(p);
         }
         return true;
-    }
-
-    private static boolean isFluidDropItem(ItemStack stack) {
-        if (stack == null || stack.getItem() == null) return false;
-        try {
-            return stack.getItem() instanceof ItemFluidDrop;
-        } catch (Throwable t) {
-            return false;
-        }
     }
 
     @Override
@@ -559,8 +545,6 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     @Override
     public void postStackUpdate(List<? extends IAEStack<?>> list) {
         for (IAEStack<?> stack : list) {
-            // ItemFluidDrop handling may have changed in 290 - make it safer
-            if (stack instanceof IAEItemStack item && isFluidDropItem(item.getItemStack())) continue;
             this.repo.postUpdate(stack);
         }
         this.repo.updateView();

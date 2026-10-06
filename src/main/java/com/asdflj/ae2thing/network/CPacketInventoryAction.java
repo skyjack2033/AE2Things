@@ -12,10 +12,6 @@ import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.BlockPos;
-import com.glodblock.github.common.item.ItemFluidDrop;
-
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
@@ -30,23 +26,7 @@ import io.netty.handler.codec.EncoderException;
 
 public class CPacketInventoryAction implements IMessage {
 
-    /**
-     * FluidCraft used to expose fluid craftables as ItemFluidDrop values on the
-     * item channel. Convert that legacy marker at the packet boundary so the
-     * 290/b3 crafting dialog and request pipeline receive a native fluid stack.
-     */
     static IAEStack<?> normalizeCraftingStack(IAEStack<?> stack) {
-        if (stack instanceof IAEItemStack itemStack && itemStack.getItem() instanceof ItemFluidDrop) {
-            final IAEFluidStack fluid = ItemFluidDrop.getAeFluidStack(itemStack);
-            if (fluid != null) {
-                fluid.setCraftable(itemStack.isCraftable());
-                fluid.setCountRequestable(itemStack.getCountRequestable());
-                fluid.setCountRequestableCrafts(itemStack.getCountRequestableCrafts());
-                fluid.setUsedPercent(itemStack.getUsedPercent());
-                return fluid;
-            }
-            return null;
-        }
         return stack;
     }
 

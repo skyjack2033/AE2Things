@@ -16,14 +16,12 @@ import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.inventory.item.BackpackTerminalInventory;
 import com.asdflj.ae2thing.util.TicUtil;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
 import appeng.container.ContainerNull;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotCraftingMatrix;
@@ -144,16 +142,14 @@ public class ContainerCraftingTerminal extends ContainerMonitor {
     @Override
     protected IAEFluidStack extractFluids(IAEFluidStack ifs, Actionable mode) {
         if (ifs.getStackSize() == 0) return ifs;
-        IAEItemStack extracted = this.host.getItemInventory()
-            .extractItems(ItemFluidDrop.newAeStack(ifs), mode, this.getActionSource());
-        return ItemFluidDrop.getAeFluidStack(extracted);
+        return this.host.getFluidInventory()
+            .extractItems(ifs, mode, this.getActionSource());
     }
 
     @Override
     protected IAEFluidStack injectFluids(IAEFluidStack ifs, Actionable mode) {
-        IAEItemStack injected = this.host.getItemInventory()
-            .injectItems(ItemFluidDrop.newAeStack(ifs), mode, this.getActionSource());
-        return ItemFluidDrop.getAeFluidStack(injected);
+        return this.host.getFluidInventory()
+            .injectItems(ifs, mode, this.getActionSource());
     }
 
 }

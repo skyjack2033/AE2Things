@@ -29,7 +29,6 @@ import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.AspectUtil;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.TerminalViewMode;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.config.CraftingStatus;
 import appeng.api.config.SearchBoxMode;
@@ -256,7 +255,6 @@ public abstract class GuiMonitor extends BaseMEGui implements IConfigManagerHost
                     0,
                     aeStack));
         } else if (action != null) {
-            if (itemStack != null && itemStack.getItem() instanceof ItemFluidDrop) itemStack = null;
             ((AEBaseContainer) this.inventorySlots).setTargetStack(itemStack);
             final PacketMonitorableAction p = new PacketMonitorableAction(action, -1);
             NetworkHandler.instance.sendToServer(p);

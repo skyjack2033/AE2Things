@@ -39,6 +39,7 @@ import appeng.api.config.SearchBoxMode;
 import appeng.api.config.Settings;
 import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.client.ActionKey;
@@ -121,16 +122,21 @@ public abstract class BaseMEGui extends AEBaseGui implements IGuiSelection {
     }
 
     /**
-     * Get fluid from IAEItemStack, handling ItemFluidDrop changes in 290 version.
+     * Resolve both native AE fluid stacks and legacy item-backed fluid markers.
      */
     private IAEFluidStack getFluidFromItemOrDrop(IAEItemStack item) {
         if (item == null) return null;
-        // Fallback for ItemFluidDrop - may have changed in 290
         try {
             if (item.getItem() instanceof ItemFluidDrop drop) {
                 return drop.getAeFluidStack(item);
             }
         } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private IAEFluidStack getFluidFromStack(IAEStack<?> stack) {
+        if (stack instanceof IAEFluidStack fluid) return fluid;
+        if (stack instanceof IAEItemStack item) return getFluidFromItemOrDrop(item);
         return null;
     }
 
@@ -140,8 +146,8 @@ public abstract class BaseMEGui extends AEBaseGui implements IGuiSelection {
         if (slot != null) {
             try {
                 ItemStack cs = player.inventory.getItemStack();
-                IAEItemStack item = slot.getAEStack() instanceof IAEItemStack ais ? ais : null;
-                IAEFluidStack fluid = getFluidFromItemOrDrop(item);
+                IAEStack<?> stack = slot.getAEStack();
+                IAEFluidStack fluid = getFluidFromStack(stack);
                 // AE uses the pick-block button for AUTO_CRAFT, including fluids that also have
                 // a stored amount. Do not consume that click as a container extraction.
                 if (fluid != null && fluid.isCraftable() && mouseButton == CLICK_MODE_PICK_BLOCK) {

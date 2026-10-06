@@ -25,14 +25,15 @@ import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.PlayerSource;
 import appeng.api.networking.storage.IStorageGrid;
+import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.core.AELog;
 import appeng.me.cache.CraftingGridCache;
-import appeng.util.item.AEItemStack;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
@@ -44,7 +45,7 @@ public class CPacketCraftRequest implements IMessage {
 
     private long amount;
     private boolean heldShift;
-    private IAEItemStack item = null;
+    private IAEStack<?> item = null;
     private Mode mode;
     private CraftingMode craftingMode;
 
@@ -55,11 +56,11 @@ public class CPacketCraftRequest implements IMessage {
 
     public CPacketCraftRequest() {}
 
-    public CPacketCraftRequest(final IAEItemStack item, final boolean shift) {
+    public CPacketCraftRequest(final IAEStack<?> item, final boolean shift) {
         this(item, shift, CraftingMode.STANDARD);
     }
 
-    public CPacketCraftRequest(final IAEItemStack item, final boolean shift, CraftingMode currentValue) {
+    public CPacketCraftRequest(final IAEStack<?> item, final boolean shift, CraftingMode currentValue) {
         this.item = item;
         this.heldShift = shift;
         this.mode = Mode.ITEM;
@@ -83,7 +84,7 @@ public class CPacketCraftRequest implements IMessage {
         buf.writeByte(craftingMode.ordinal());
         if (mode == Mode.ITEM) {
             try {
-                item.writeToPacket(buf);
+                IAEStack.writeToPacketGeneric(buf, item);
                 buf.writeBoolean(heldShift);
             } catch (Exception e) {
                 throw new EncoderException("Failed to encode crafting request", e);
@@ -101,7 +102,7 @@ public class CPacketCraftRequest implements IMessage {
         craftingMode = PacketDecodeUtil.readByteEnum(buf, CraftingMode.values(), "crafting mode");
         if (mode == Mode.ITEM) {
             try {
-                item = AEItemStack.loadItemStackFromPacket(buf);
+                item = IAEStack.fromPacketGeneric(buf);
                 heldShift = buf.readBoolean();
             } catch (Exception e) {
                 throw new DecoderException("Failed to decode crafting request", e);
@@ -208,8 +209,17 @@ public class CPacketCraftRequest implements IMessage {
                     try {
                         IStorageGrid storageGrid = g.getCache(IStorageGrid.class);
                         if(storageGrid == null) return null;
-                        IAEItemStack storedItem = storageGrid.getItemInventory().getStorageList().findPrecise(message.item);
-                        if(storedItem == null || !storedItem.isCraftable()) return null;
+                        IAEStack<?> storedStack = null;
+                        if (message.item instanceof IAEItemStack itemStack) {
+                            storedStack = storageGrid.getItemInventory()
+                                .getStorageList()
+                                .findPrecise(itemStack);
+                        } else if (message.item instanceof IAEFluidStack fluidStack) {
+                            storedStack = storageGrid.getFluidInventory()
+                                .getStorageList()
+                                .findPrecise(fluidStack);
+                        }
+                        if (storedStack == null || !storedStack.isCraftable()) return null;
                         final ICraftingGrid cg = g.getCache(ICraftingGrid.class);
                         if (cg instanceof CraftingGridCache cgc) {
 
