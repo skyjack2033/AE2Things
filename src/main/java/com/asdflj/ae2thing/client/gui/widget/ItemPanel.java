@@ -19,14 +19,12 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
-import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.client.gui.BaseMEGui;
 import com.asdflj.ae2thing.client.gui.IGuiMonitorTerminal;
 import com.asdflj.ae2thing.client.gui.IWidgetGui;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.me.AdvItemRepo;
 import com.asdflj.ae2thing.integration.Mods;
-import com.asdflj.ae2thing.network.CPacketInventoryAction;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.AspectUtil;
 import com.asdflj.ae2thing.util.TerminalViewMode;
@@ -51,7 +49,6 @@ import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMonitorableAction;
 import appeng.core.sync.packets.PacketValueConfig;
-import appeng.helpers.InventoryAction;
 import appeng.helpers.MonitorableAction;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
@@ -340,13 +337,7 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
         }
         if (action == MonitorableAction.AUTO_CRAFT) {
             this.inventorySlots.setTargetStack(aeStack);
-            AE2Thing.proxy.netHandler.sendToServer(
-                new CPacketInventoryAction(
-                    InventoryAction.AUTO_CRAFT,
-                    Ae2ReflectClient.getInventorySlots(this.parent)
-                        .size(),
-                    -2,
-                    aeStack));
+            NetworkHandler.instance.sendToServer(new PacketMonitorableAction(MonitorableAction.AUTO_CRAFT, -1));
         } else if (action != null) {
             // ItemFluidDrop handling may have changed in 290 - make it safer
             if (itemStack != null && isFluidDropItem(itemStack.getItemStack())) {

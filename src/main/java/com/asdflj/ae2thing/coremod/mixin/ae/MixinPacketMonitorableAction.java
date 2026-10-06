@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.asdflj.ae2thing.client.gui.container.ContainerMonitor;
+import com.asdflj.ae2thing.network.CPacketInventoryAction;
 
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
@@ -28,7 +29,11 @@ public abstract class MixinPacketMonitorableAction {
     private void handleAE2ThingContainer(INetworkInfo manager, AppEngPacket packet, EntityPlayer player,
         CallbackInfo ci) {
         if (player.openContainer instanceof ContainerMonitor container) {
-            container.doMonitorableAction(this.action, (EntityPlayerMP) player);
+            if (this.action == MonitorableAction.AUTO_CRAFT) {
+                CPacketInventoryAction.openCraftAmount(container, (EntityPlayerMP) player, null);
+            } else {
+                container.doMonitorableAction(this.action, (EntityPlayerMP) player);
+            }
             ci.cancel();
         }
     }

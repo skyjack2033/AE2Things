@@ -50,6 +50,41 @@ public class CPacketInventoryAction implements IMessage {
         return stack;
     }
 
+    public static void openCraftAmount(AEBaseContainer baseContainer, EntityPlayerMP sender, IAEStack<?> requestedStack) {
+        final ContainerOpenContext context = baseContainer.getOpenContext();
+        if (context == null) return;
+
+        Object target = baseContainer.getTarget();
+        final TileEntity te = context.getTile();
+        if (te == null && !(target instanceof WirelessTerminal)) return;
+
+        IAEStack<?> stack = requestedStack != null ? requestedStack : baseContainer.getTargetStack();
+        stack = normalizeCraftingStack(stack);
+        if (stack == null) return;
+
+        baseContainer.setTargetStack(stack);
+        if (te != null) {
+            InventoryHandler.openGui(
+                sender,
+                te.getWorldObj(),
+                new BlockPos(te),
+                Objects.requireNonNull(context.getSide()),
+                GuiType.CRAFTING_AMOUNT);
+        } else {
+            InventoryHandler.openGui(
+                sender,
+                sender.getEntityWorld(),
+                new BlockPos(((WirelessTerminal) target).getInventorySlot(), 0, 0),
+                Objects.requireNonNull(context.getSide()),
+                GuiType.CRAFTING_AMOUNT_ITEM);
+        }
+
+        if (sender.openContainer instanceof final ContainerCraftAmount cca) {
+            cca.setItemToCraft(baseContainer.getTargetStack());
+            cca.detectAndSendChanges();
+        }
+    }
+
     private InventoryAction action;
     private int slot;
     private long id;
@@ -111,41 +146,8 @@ public class CPacketInventoryAction implements IMessage {
         public IMessage onMessage(CPacketInventoryAction message, MessageContext ctx) {
             final EntityPlayerMP sender = ctx.getServerHandler().playerEntity;
             if (sender.openContainer instanceof final AEBaseContainer baseContainer) {
-                Object target = baseContainer.getTarget();
                 if (message.action == InventoryAction.AUTO_CRAFT) {
-                    final ContainerOpenContext context = baseContainer.getOpenContext();
-                    if (context != null) {
-                        final TileEntity te = context.getTile();
-                        if (te != null || target instanceof WirelessTerminal) {
-                            if (message.stack == null){
-                                message.stack = baseContainer.getTargetStack();
-                            }
-                            message.stack = normalizeCraftingStack(message.stack);
-                            if (message.stack == null) return null;
-                            baseContainer.setTargetStack(message.stack);
-                            if(te != null){
-                                InventoryHandler.openGui(
-                                    sender,
-                                    te.getWorldObj(),
-                                    new BlockPos(te),
-                                    Objects.requireNonNull(baseContainer.getOpenContext().getSide()),
-                                    GuiType.CRAFTING_AMOUNT);
-                            }else{
-                                InventoryHandler.openGui(
-                                    sender,
-                                    sender.getEntityWorld(),
-                                    new BlockPos(((WirelessTerminal) target).getInventorySlot(),0,0),
-                                    Objects.requireNonNull(baseContainer.getOpenContext().getSide()),
-                                    GuiType.CRAFTING_AMOUNT_ITEM);
-                            }
-                        }
-                        if (sender.openContainer instanceof final ContainerCraftAmount cca) {
-                            if (baseContainer.getTargetStack() != null) {
-                                cca.setItemToCraft(baseContainer.getTargetStack());
-                            }
-                            cca.detectAndSendChanges();
-                        }
-                    }
+                    openCraftAmount(baseContainer, sender, message.stack);
                 } else {
                     baseContainer.doAction(sender, message.action, message.slot, message.id);
                 }

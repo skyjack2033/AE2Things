@@ -2,6 +2,7 @@ package com.asdflj.ae2thing.client.gui;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.ItemStack;
 
 import com.asdflj.ae2thing.common.parts.PartInfusionPatternTerminal;
 import com.asdflj.ae2thing.inventory.InventoryHandler;
@@ -31,7 +32,7 @@ public class GuiCraftingStatus extends appeng.client.gui.implementations.GuiCraf
             Ae2ReflectClient.rewriteIcon(this, ItemAndBlockHolder.ITEM_WIRELESS_DUAL_INTERFACE_TERMINAL.stack());
         }
         super.initGui();
-        originalGuiBtn = Ae2ReflectClient.getOriginalGuiButton(this);
+        if (originalGuiBtn == null) initPrimaryGuiButton();
     }
 
     @Override
@@ -45,5 +46,30 @@ public class GuiCraftingStatus extends appeng.client.gui.implementations.GuiCraf
         } else {
             super.actionPerformed(btn);
         }
+    }
+
+    @Override
+    public void initPrimaryGuiButton() {
+        if (originalGuiBtn != null && this.buttonList.contains(originalGuiBtn)) return;
+
+        final ItemStack icon;
+        if (host instanceof PartInfusionPatternTerminal) {
+            icon = ItemAndBlockHolder.INFUSION_PATTERN_TERMINAL.stack();
+        } else if (host instanceof WirelessDualInterfaceTerminalInventory) {
+            icon = ItemAndBlockHolder.ITEM_WIRELESS_DUAL_INTERFACE_TERMINAL.stack();
+        } else {
+            super.initPrimaryGuiButton();
+            originalGuiBtn = Ae2ReflectClient.getOriginalGuiButton(this);
+            return;
+        }
+
+        this.buttonList.add(
+            originalGuiBtn = new GuiTabButton(
+                this.guiLeft + this.xSize - 25,
+                this.guiTop - 4,
+                icon,
+                icon.getDisplayName(),
+                itemRender));
+        originalGuiBtn.setHideEdge(13);
     }
 }
