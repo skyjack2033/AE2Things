@@ -12,6 +12,7 @@ import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.BlockPos;
+
 import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
