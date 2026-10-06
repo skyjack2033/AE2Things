@@ -708,11 +708,15 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     public List<String> handleItemTooltip(ItemStack stack, int mouseX, int mouseY, List<String> currentToolTip) {
-        return currentToolTip;
+        return super.handleItemTooltip(stack, mouseX, mouseY, currentToolTip);
     }
 
     @Override
     public ItemStack getHoveredStack() {
+        // Let AE expose the item panel's virtual slots to NEI, including empty slots.
+        if (this.getVirtualMESlotUnderMouse() != null) {
+            return super.getHoveredStack();
+        }
         return tooltipStack;
     }
 
