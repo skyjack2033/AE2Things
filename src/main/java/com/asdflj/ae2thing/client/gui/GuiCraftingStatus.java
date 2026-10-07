@@ -16,7 +16,6 @@ import appeng.client.gui.widgets.GuiTabButton;
 
 public class GuiCraftingStatus extends appeng.client.gui.implementations.GuiCraftingStatus {
 
-    private GuiTabButton originalGuiBtn;
     private final ITerminalHost host;
 
     public GuiCraftingStatus(InventoryPlayer inventoryPlayer, ITerminalHost te) {

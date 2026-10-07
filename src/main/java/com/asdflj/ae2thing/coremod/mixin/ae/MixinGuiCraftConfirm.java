@@ -15,6 +15,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.asdflj.ae2thing.AE2Thing;
+import com.asdflj.ae2thing.common.parts.PartInfusionPatternTerminal;
+import com.asdflj.ae2thing.inventory.InventoryHandler;
+import com.asdflj.ae2thing.inventory.gui.GuiType;
+import com.asdflj.ae2thing.inventory.item.WirelessDualInterfaceTerminalInventory;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.util.NameConst;
 
@@ -24,12 +28,16 @@ import appeng.api.storage.data.IItemList;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.client.gui.widgets.GuiAeButton;
+import appeng.container.AEBaseContainer;
 
 @Mixin(GuiCraftConfirm.class)
 public abstract class MixinGuiCraftConfirm extends AEBaseGui {
 
     @Shadow(remap = false)
     private GuiAeButton start;
+
+    @Shadow(remap = false)
+    private GuiButton cancel;
 
     @Shadow(remap = false)
     @Final
@@ -51,6 +59,22 @@ public abstract class MixinGuiCraftConfirm extends AEBaseGui {
 
     public MixinGuiCraftConfirm(Container container) {
         super(container);
+    }
+
+    @Inject(method = "actionPerformed", at = @At("HEAD"), cancellable = true, remap = false)
+    private void handleCustomCancel(GuiButton btn, CallbackInfo ci) {
+        if (btn != this.cancel || !(this.inventorySlots instanceof AEBaseContainer container)) {
+            return;
+        }
+
+        final Object target = container.getTarget();
+        if (target instanceof PartInfusionPatternTerminal) {
+            InventoryHandler.switchGui(GuiType.INFUSION_PATTERN_TERMINAL);
+            ci.cancel();
+        } else if (target instanceof WirelessDualInterfaceTerminalInventory) {
+            InventoryHandler.switchGui(GuiType.WIRELESS_DUAL_INTERFACE_TERMINAL);
+            ci.cancel();
+        }
     }
 
     @Inject(method = "actionPerformed", at = @At(value = "HEAD"))
