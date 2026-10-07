@@ -54,6 +54,10 @@ public abstract class MixinGuiCraftConfirm extends AEBaseGui {
     @Shadow(remap = false)
     @Final
     private List<IAEStack<?>> visual;
+
+    @Shadow(remap = false)
+    protected abstract void addMissingItemsToBookMark();
+
     private GuiAeButton replan = null;
     private boolean clickStart = false;
 
@@ -66,6 +70,10 @@ public abstract class MixinGuiCraftConfirm extends AEBaseGui {
         if (btn != this.cancel || !(this.inventorySlots instanceof AEBaseContainer container)) {
             return;
         }
+
+        // The custom terminal return path replaces AE2's cancel handler, so invoke the native
+        // missing-material bookmark action before switching back to the terminal.
+        this.addMissingItemsToBookMark();
 
         final Object target = container.getTarget();
         if (target instanceof PartInfusionPatternTerminal) {
