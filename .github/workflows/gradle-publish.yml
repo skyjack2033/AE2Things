@@ -3,6 +3,9 @@
 
 name: Release latest starter and migration packages
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ master, main ]
