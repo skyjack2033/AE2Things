@@ -124,7 +124,11 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
                 this.networkNode = node;
                 final IGrid g = node.getGrid();
                 if (g != null) {
-                    this.setPowerSource(new ChannelPowerSrc(this.networkNode, g.getCache(IEnergyGrid.class)));
+                    // Wireless terminals own their power source. Keep the terminal here so an installed
+                    // infinity energy card also applies to monitor actions and pattern uploads.
+                    if (!(this.host instanceof WirelessTerminal)) {
+                        this.setPowerSource(new ChannelPowerSrc(this.networkNode, g.getCache(IEnergyGrid.class)));
+                    }
                     IStorageGrid storageGrid = g.getCache(IStorageGrid.class);
                     this.monitor.setMonitor(storageGrid.getItemInventory());
                     this.fluidMonitor.setMonitor(storageGrid.getFluidInventory());
@@ -339,6 +343,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             }
         } catch (Throwable ignored) {}
         CraftingGridCache.unpauseRebuilds();
+        InterfacePatternInventory.notifyPatternChange(host);
         this.sendToClient(host);
     }
 
@@ -451,6 +456,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             } else {
                 extractPatternToInterface(result.right);
             }
+            InterfacePatternInventory.notifyPatternChange(result.right);
             this.sendToClient(result.right);
         }
     }
@@ -511,12 +517,15 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     private void placePattern(int slot, IInterfaceViewable host) {
         Slot output = this.patternPanel.getPatternOutputSlot();
         if (output == null) return;
-        PatternUpload.moveToSlot(
+        boolean uploaded = PatternUpload.moveToSlot(
             output.inventory,
             output.getSlotIndex(),
             InterfacePatternInventory.getPatterns(host),
             slot,
             InterfacePatternInventory.getSlotCount(host));
+        if (uploaded) {
+            InterfacePatternInventory.notifyPatternChange(host);
+        }
         // Also refresh after a rejected upload, e.g. when another player filled the selected slot.
         this.sendToClient(host);
     }

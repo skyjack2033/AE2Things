@@ -4,10 +4,16 @@ import java.lang.reflect.Field;
 import java.util.Optional;
 
 import net.minecraft.inventory.IInventory;
+import net.minecraftforge.common.util.ForgeDirection;
 
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.networking.events.MENetworkCraftingPatternChange;
 import appeng.api.util.IInterfaceViewable;
 import appeng.core.AELog;
 import appeng.core.sync.packets.PacketInterfaceTerminalUpdate;
+import appeng.helpers.IInterfaceHost;
 import appeng.util.inv.WrapperInventoryRange;
 
 public final class InterfacePatternInventory {
@@ -74,7 +80,33 @@ public final class InterfacePatternInventory {
         int capacity = getPatternCapacity(host);
         if (capacity < 0) return inventory;
         // GTNL exposes its entire hatch inventory, including circuit and manual input slots.
-        return new WrapperInventoryRange(inventory, 0, Math.min(capacity, inventory.getSizeInventory()), false);
+        // The wrapper is already bounded to PatternSlot entries, so a host-level validation rule must not reject
+        // encoded patterns before the hatch receives them.
+        return new WrapperInventoryRange(inventory, 0, Math.min(capacity, inventory.getSizeInventory()), true);
+    }
+
+    /**
+     * Force the provider to rebuild its crafting registrations after a remote inventory mutation.
+     * <p>
+     * Native AE interfaces do this from their inventory callback. GTNL's large hatch intentionally batches the
+     * network event for up to ten ticks, which is long enough for a craft request made immediately after an upload
+     * to report a missing pattern. Publishing here keeps the terminal's write path synchronous without changing the
+     * provider's normal tick behavior.
+     */
+    public static void notifyPatternChange(IInterfaceViewable host) {
+        if (host instanceof IInterfaceHost interfaceHost) {
+            interfaceHost.getInterfaceDuality()
+                .updateCraftingList();
+            return;
+        }
+
+        if (!(host instanceof ICraftingProvider provider)) return;
+        IGridNode node = host.getGridNode(ForgeDirection.UNKNOWN);
+        if (node == null || !node.isActive()) return;
+        IGrid grid = node.getGrid();
+        if (grid != null) {
+            grid.postEvent(new MENetworkCraftingPatternChange(provider, node));
+        }
     }
 
     public interface Tracker {
