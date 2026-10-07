@@ -6,6 +6,7 @@ import net.minecraft.item.ItemStack;
 
 import com.asdflj.ae2thing.api.Constants;
 import com.asdflj.ae2thing.inventory.ItemBiggerAppEngInventory;
+import com.asdflj.ae2thing.util.InterfacePatternInventory;
 
 import appeng.api.AEApi;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
@@ -105,8 +106,9 @@ public class PatternModifierInventory implements ITerminalHost, IInventorySlotAw
                     .createPrimitiveItemList(),
                 IterationCounter.fetchNewId());
         if (itemList.isEmpty()) return;
-        IInventory inv = host.getPatterns();
-        for (int i = 0; i < host.rowSize() * host.rows(); i++) {
+        IInventory inv = InterfacePatternInventory.getPatterns(host);
+        int slots = Math.min(InterfacePatternInventory.getSlotCount(host), inv.getSizeInventory());
+        for (int i = 0; i < slots; i++) {
             ItemStack stored = inv.getStackInSlot(i);
             if (stored != null) continue;
             for (int j = 0; j < this.pattern.getSizeInventory(); j++) {

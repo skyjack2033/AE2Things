@@ -32,6 +32,7 @@ import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.Ae2Reflect;
 import com.asdflj.ae2thing.util.GTUtil;
+import com.asdflj.ae2thing.util.InterfacePatternInventory;
 import com.asdflj.ae2thing.util.InterfaceTerminalTarget;
 import com.asdflj.ae2thing.util.PatternUpload;
 import com.glodblock.github.common.item.ItemFluidPacket;
@@ -315,7 +316,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     }
 
     private void doublePatterns(int val, World w, IInterfaceViewable host) {
-        IInventory patterns = host.getPatterns();
+        IInventory patterns = InterfacePatternInventory.getPatterns(host);
         boolean fast = (val & 1) != 0;
         boolean backwards = (val & 2) != 0;
         CraftingGridCache.pauseRebuilds();
@@ -345,8 +346,8 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         Long id = InterfaceTerminalTarget.getId(Ae2Reflect.getTracked(this.delegateContainer), host);
         if (id == null) return;
         try {
-            IInventory patterns = host.getPatterns();
-            int slots = Math.min(host.numSlots(), patterns.getSizeInventory());
+            IInventory patterns = InterfacePatternInventory.getPatterns(host);
+            int slots = Math.min(InterfacePatternInventory.getSlotCount(host), patterns.getSizeInventory());
             NBTTagList items = new NBTTagList();
             for (int i = 0; i < slots; i++) {
                 ItemStack stack = patterns.getStackInSlot(i);
@@ -356,7 +357,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             }
             PacketInterfaceTerminalUpdate update = new PacketInterfaceTerminalUpdate();
             update.addOverwriteEntry(id)
-                .setSize(host.rows(), host.rowSize(), slots)
+                .setSize(InterfacePatternInventory.getRows(host), host.rowSize(), slots)
                 .setItems(new int[0], items);
             update.encode();
             NetworkHandler.instance.sendTo(update, (EntityPlayerMP) this.getPlayerInv().player);
@@ -463,7 +464,7 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     }
 
     private void injectPatternToPatternModifier(IInterfaceViewable host, int slot, boolean shift) {
-        IInventory patterns = host.getPatterns();
+        IInventory patterns = InterfacePatternInventory.getPatterns(host);
         if (!shift && ((slot < 0) || (slot >= patterns.getSizeInventory()))) return;
         PatternModifierInventory patternModifierInventory = new PatternModifierInventory(
             this.player.inventory.getItemStack(),
@@ -510,7 +511,12 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     private void placePattern(int slot, IInterfaceViewable host) {
         Slot output = this.patternPanel.getPatternOutputSlot();
         if (output == null) return;
-        PatternUpload.moveToSlot(output.inventory, output.getSlotIndex(), host.getPatterns(), slot, host.numSlots());
+        PatternUpload.moveToSlot(
+            output.inventory,
+            output.getSlotIndex(),
+            InterfacePatternInventory.getPatterns(host),
+            slot,
+            InterfacePatternInventory.getSlotCount(host));
         // Also refresh after a rejected upload, e.g. when another player filled the selected slot.
         this.sendToClient(host);
     }

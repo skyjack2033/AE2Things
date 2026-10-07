@@ -14,7 +14,9 @@ public enum Mixins implements IMixins {
             "ae.MixinCraftingCPUCluster",
             "ae.MixinPacketMonitorableAction",
             "ae.MixinTileIOPort",
-            "ae.MixinContainerCraftAmount")
+            "ae.MixinContainerCraftAmount",
+            "ae.MixinContainerInterfaceTerminal",
+            "ae.MixinInterfaceTerminalInvTracker")
         .addClientMixins(
             "ae.AccessorGuiScrollbar",
             "ae.MixinAEBaseGui",
