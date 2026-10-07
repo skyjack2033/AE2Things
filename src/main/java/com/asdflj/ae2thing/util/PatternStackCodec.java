@@ -4,6 +4,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
+import com.glodblock.github.common.item.ItemFluidDrop;
 import com.glodblock.github.common.item.ItemFluidPacket;
 
 import appeng.api.storage.data.IAEFluidStack;
@@ -26,6 +27,10 @@ public final class PatternStackCodec {
 
     public static IAEStack<?> normalize(IAEStack<?> stack) {
         if (stack instanceof IAEItemStack item) {
+            // GTNH/AE2FC still exposes fluids through the legacy ItemFluidDrop boundary in
+            // ICraftingPatternDetails#getInputs(). Convert it back before comparing or
+            // serializing so native fluid and legacy fluid stacks remain interchangeable.
+            if (item.getItem() instanceof ItemFluidDrop) return ItemFluidDrop.getAeFluidStack(item);
             if (item.getItem() instanceof ItemFluidPacket) return ItemFluidPacket.getFluidAEStack(item);
         }
         return stack;

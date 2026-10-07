@@ -1,6 +1,7 @@
 package com.asdflj.ae2thing.util;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Optional;
 
 import net.minecraft.inventory.IInventory;
@@ -19,6 +20,7 @@ import appeng.util.inv.WrapperInventoryRange;
 public final class InterfacePatternInventory {
 
     private static final String GTNL_SUPER_HATCH = "com.science.gtnl.common.machine.hatch.SuperCraftingInputHatchME";
+    private static final String PROGRAMMABLE_PATTERN_PREFIX = "reobf.proghatches.gt.metatileentity.Pattern";
     private static final ClassValue<Optional<Field>> PATTERN_ARRAY = new ClassValue<>() {
 
         @Override
@@ -33,6 +35,15 @@ public final class InterfacePatternInventory {
                 }
             }
             return Optional.empty();
+        }
+    };
+    private static final ClassValue<Optional<Method>> PROGRAMMABLE_REFRESH = new ClassValue<>() {
+
+        @Override
+        protected Optional<Method> computeValue(Class<?> type) {
+            if (!type.getName()
+                .startsWith(PROGRAMMABLE_PATTERN_PREFIX)) return Optional.empty();
+            return findMethod(type, "refresh");
         }
     };
 
@@ -100,6 +111,12 @@ public final class InterfacePatternInventory {
             return;
         }
 
+        // Programmable Hatches cache parsed pattern details by ItemStack identity. Their
+        // inventory callback only marks the cache dirty for a later tick, so force the
+        // same refresh entry point that the official hatch UI uses before publishing the
+        // fallback AE2 event.
+        if (refreshProgrammablePatternCache(host)) return;
+
         if (!(host instanceof ICraftingProvider provider)) return;
         IGridNode node = host.getGridNode(ForgeDirection.UNKNOWN);
         if (node == null || !node.isActive()) return;
@@ -107,6 +124,35 @@ public final class InterfacePatternInventory {
         if (grid != null) {
             grid.postEvent(new MENetworkCraftingPatternChange(provider, node));
         }
+    }
+
+    private static boolean refreshProgrammablePatternCache(IInterfaceViewable host) {
+        Method refresh = PROGRAMMABLE_REFRESH.get(host.getClass())
+            .orElse(null);
+        if (refresh == null) return false;
+        try {
+            refresh.invoke(host);
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            AELog.error(e);
+            return false;
+        }
+    }
+
+    private static Optional<Method> findMethod(Class<?> type, String name, Class<?>... parameterTypes) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                Method method = current.getDeclaredMethod(name, parameterTypes);
+                method.setAccessible(true);
+                return Optional.of(method);
+            } catch (NoSuchMethodException ignored) {
+                // The official method may live on a shared parent hatch.
+            } catch (SecurityException e) {
+                AELog.error(e);
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
     }
 
     public interface Tracker {
