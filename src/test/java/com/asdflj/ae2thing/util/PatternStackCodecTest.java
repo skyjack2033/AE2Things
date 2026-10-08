@@ -25,7 +25,6 @@ public class PatternStackCodecTest {
         NBTTagCompound data = PatternStackCodec.processingData(
             new IAEStack<?>[] { fluid, null, stack("item", 2) },
             new IAEStack<?>[] { null, fluid },
-            true,
             false);
 
         assertNotNull(data);
@@ -62,11 +61,10 @@ public class PatternStackCodecTest {
     }
 
     @Test
-    public void fluidInputsDisableInheritedSubstitutionWithoutChangingOutputSubstitution() {
+    public void fluidInputsAreExactWithoutChangingPatternSubstitution() {
         NBTTagCompound data = PatternStackCodec.processingData(
             new IAEStack<?>[] { stack("item", 1), stack("fluid", 144) },
             new IAEStack<?>[] { stack("item", 1) },
-            true,
             true);
 
         assertNotNull(data);
@@ -79,7 +77,6 @@ public class PatternStackCodecTest {
         NBTTagCompound data = PatternStackCodec.processingData(
             new IAEStack<?>[] { stack("item", 1) },
             new IAEStack<?>[] { stack("fluid", 144) },
-            true,
             true);
 
         assertNotNull(data);
@@ -88,51 +85,80 @@ public class PatternStackCodecTest {
     }
 
     @Test
-    public void fluidFreeProcessingPreservesSubstitutionSettings() {
-        for (boolean substitute : new boolean[] { false, true }) {
-            for (boolean beSubstitute : new boolean[] { false, true }) {
-                NBTTagCompound data = PatternStackCodec.processingData(
-                    new IAEStack<?>[] { stack("item", 1) },
-                    new IAEStack<?>[] { stack("item", 1) },
-                    substitute,
-                    beSubstitute);
+    public void processingAlwaysUsesExactInputsButPreservesPatternSubstitution() {
+        for (boolean beSubstitute : new boolean[] { false, true }) {
+            NBTTagCompound data = PatternStackCodec.processingData(
+                new IAEStack<?>[] { stack("item", 1) },
+                new IAEStack<?>[] { stack("item", 1) },
+                beSubstitute);
 
-                assertNotNull(data);
-                assertEquals(substitute, data.getBoolean("substitute"));
-                assertEquals(beSubstitute, data.getBoolean("beSubstitute"));
-            }
+            assertNotNull(data);
+            assertFalse(data.getBoolean("substitute"));
+            assertEquals(beSubstitute, data.getBoolean("beSubstitute"));
         }
     }
 
     @Test
-    public void fluidDetectionIncludesLastInputAndOutputSlots() {
+    public void itemMetadataRemainsExactWithPatternSubstitutionEnabled() {
+        NBTTagCompound ingredient = new NBTTagCompound();
+        ingredient.setString("StackType", "item");
+        ingredient.setString("id", "ae2thing_metadata_fixture");
+        ingredient.setShort("Damage", (short) 32036);
+        ingredient.setLong("Cnt", 64);
+        NBTTagCompound itemData = new NBTTagCompound();
+        itemData.setString("variant", "waferILC");
+        ingredient.setTag("tag", itemData);
+
+        NBTTagCompound data = PatternStackCodec.processingData(
+            new IAEStack<?>[] { null, stack(ingredient) },
+            new IAEStack<?>[] { stack("item", 1) },
+            true);
+
+        assertNotNull(data);
+        assertFalse(data.getBoolean("substitute"));
+        assertTrue(data.getBoolean("beSubstitute"));
+        NBTTagList inputs = data.getTagList("in", 10);
+        assertEquals(2, inputs.tagCount());
+        assertTrue(
+            inputs.getCompoundTagAt(0)
+                .hasNoTags());
+        assertEquals(ingredient, inputs.getCompoundTagAt(1));
+    }
+
+    @Test
+    public void processingKeepsLastInputAndOutputSlotsWithoutEnablingInputSubstitution() {
         IAEStack<?>[] inputs = new IAEStack<?>[32];
         IAEStack<?>[] outputs = new IAEStack<?>[32];
-        inputs[0] = stack("item", 1);
-        inputs[31] = stack("fluid", 144);
-        outputs[0] = stack("item", 1);
+        inputs[31] = stack("item", 64);
+        outputs[31] = stack("item", 1);
 
-        NBTTagCompound inputFluid = PatternStackCodec.processingData(inputs, outputs, true, false);
-        assertNotNull(inputFluid);
-        assertFalse(inputFluid.getBoolean("substitute"));
-
-        inputs[31] = null;
-        outputs[31] = stack("fluid", 144);
-        NBTTagCompound outputFluid = PatternStackCodec.processingData(inputs, outputs, true, false);
-        assertNotNull(outputFluid);
-        assertFalse(outputFluid.getBoolean("substitute"));
+        NBTTagCompound data = PatternStackCodec.processingData(inputs, outputs, true);
+        assertNotNull(data);
+        assertFalse(data.getBoolean("substitute"));
+        assertTrue(data.getBoolean("beSubstitute"));
+        NBTTagList in = data.getTagList("in", 10);
+        NBTTagList out = data.getTagList("out", 10);
+        assertEquals(32, in.tagCount());
+        assertEquals(1, out.tagCount());
+        assertEquals(
+            64,
+            in.getCompoundTagAt(31)
+                .getLong("Cnt"));
+        assertEquals(
+            1,
+            out.getCompoundTagAt(0)
+                .getLong("Cnt"));
     }
 
     @Test
     public void rejectsMissingOrEmptyProcessingSides() {
-        assertNull(PatternStackCodec.processingData(null, new IAEStack<?>[] { stack("item", 1) }, false, false));
+        assertNull(PatternStackCodec.processingData(null, new IAEStack<?>[] { stack("item", 1) }, false));
         assertNull(
-            PatternStackCodec.processingData(new IAEStack<?>[] { stack("item", 1) }, new IAEStack<?>[0], false, false));
+            PatternStackCodec.processingData(new IAEStack<?>[] { stack("item", 1) }, new IAEStack<?>[0], false));
         assertNull(
             PatternStackCodec.processingData(
                 new IAEStack<?>[] { stack("item", 0) },
                 new IAEStack<?>[] { stack("item", 1) },
-                false,
                 false));
     }
 
@@ -141,7 +167,6 @@ public class PatternStackCodecTest {
         NBTTagCompound data = PatternStackCodec.processingData(
             new IAEStack<?>[] { stack("item", 1) },
             new IAEStack<?>[] { null, stack("item", 1), null },
-            false,
             false);
 
         assertNotNull(data);
@@ -152,17 +177,19 @@ public class PatternStackCodecTest {
     }
 
     private static IAEStack<?> stack(String type, long amount) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString("StackType", type);
+        if ("fluid".equals(type)) tag.setString("FluidName", "ae2thing_schema_fixture");
+        tag.setLong("Cnt", amount);
+        return stack(tag);
+    }
+
+    private static IAEStack<?> stack(NBTTagCompound tag) {
         Map<String, Object> values = new HashMap<>();
-        values.put("getStackSize", amount);
-        values.put("toNBTGeneric", (Supplier<NBTTagCompound>) () -> {
-            NBTTagCompound tag = new NBTTagCompound();
-            tag.setString("StackType", type);
-            if ("fluid".equals(type)) tag.setString("FluidName", "ae2thing_schema_fixture");
-            tag.setLong("Cnt", amount);
-            return tag;
-        });
-        values.put("isItem", "item".equals(type));
-        values.put("isFluid", "fluid".equals(type));
+        values.put("getStackSize", tag.getLong("Cnt"));
+        values.put("toNBTGeneric", (Supplier<NBTTagCompound>) () -> (NBTTagCompound) tag.copy());
+        values.put("isItem", "item".equals(tag.getString("StackType")));
+        values.put("isFluid", "fluid".equals(tag.getString("StackType")));
         return ProxyFactory.create(IAEStack.class, values);
     }
 

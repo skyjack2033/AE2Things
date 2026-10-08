@@ -186,15 +186,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
     }
 
     public boolean allowsInputSubstitution() {
-        boolean craftingMode = Platform.isServer() ? this.it.isCraftingRecipe() : this.container.isCraftingMode();
-        return craftingMode || !containsFluidMarker(this.craftingEx) && !containsFluidMarker(this.outputEx);
-    }
-
-    private static boolean containsFluidMarker(IInventory inventory) {
-        for (int slot = 0; slot < inventory.getSizeInventory(); slot++) {
-            if (PatternStackCodec.isFluidMarker(inventory.getStackInSlot(slot))) return true;
-        }
-        return false;
+        return Platform.isServer() ? this.it.isCraftingRecipe() : this.container.isCraftingMode();
     }
 
     private void updateOrderOfOutputSlots() {
@@ -557,7 +549,6 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
         NBTTagCompound data = PatternStackCodec.processingData(
             collectInventory(this.craftingExSlots),
             collectInventory(this.outputExSlots),
-            this.container.substitute,
             this.container.beSubstitute);
         if (data == null) return null;
         ItemStack pattern = AEApi.instance()

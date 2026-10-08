@@ -144,8 +144,7 @@ public class ContainerPatternModifier extends AEBaseContainer implements IPatter
 
     private void encodeProcessingPattern(ICraftingPatternDetails details, IAEStack<?>[] in, IAEStack<?>[] out,
         int slot) {
-        NBTTagCompound data = PatternStackCodec
-            .processingData(in, out, details.canSubstitute(), details.canBeSubstitute());
+        NBTTagCompound data = PatternStackCodec.processingData(in, out, details.canBeSubstitute());
         if (data == null) return;
         ItemStack pattern = AEApi.instance()
             .definitions()
