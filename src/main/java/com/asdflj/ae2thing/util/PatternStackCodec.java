@@ -52,8 +52,7 @@ public final class PatternStackCodec {
     }
 
     public static boolean isFluidMarker(ItemStack stack) {
-        return stack != null && (stack.getItem() instanceof ItemFluidDrop
-            || stack.getItem() instanceof ItemFluidPacket
+        return stack != null && (stack.getItem() instanceof ItemFluidDrop || stack.getItem() instanceof ItemFluidPacket
             || stack.getItem() instanceof ItemFluidDisplay);
     }
 
