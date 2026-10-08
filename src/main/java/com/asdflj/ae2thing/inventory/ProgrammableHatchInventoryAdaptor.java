@@ -12,6 +12,8 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTankInfo;
 
 import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.util.PatternStackCodec;
+import com.glodblock.github.common.item.ItemFluidDrop;
 import com.glodblock.github.common.item.ItemFluidPacket;
 
 import appeng.api.config.FuzzyMode;
@@ -130,11 +132,8 @@ public final class ProgrammableHatchInventoryAdaptor extends InventoryAdaptor {
 
     @Nullable
     private static IAEFluidStack asFluid(IAEStack<?> stack) {
-        if (stack instanceof IAEFluidStack fluid) return fluid;
-        if (stack instanceof IAEItemStack item && item.getItem() instanceof ItemFluidPacket) {
-            return ItemFluidPacket.getFluidAEStack(item);
-        }
-        return null;
+        IAEStack<?> normalized = PatternStackCodec.normalize(stack);
+        return normalized instanceof IAEFluidStack fluid ? fluid : null;
     }
 
     @Nullable
@@ -160,6 +159,12 @@ public final class ProgrammableHatchInventoryAdaptor extends InventoryAdaptor {
             if (packet == null) return original;
             ItemFluidPacket.setFluidAmount(packet, amount);
             return AEItemStack.create(packet);
+        }
+        if (original instanceof IAEItemStack item && item.getItem() instanceof ItemFluidDrop) {
+            IAEItemStack drop = ItemFluidDrop.newAeStack(fluid.getFluidStack());
+            if (drop == null) return original;
+            drop.setStackSize(amount);
+            return drop;
         }
         IAEFluidStack copy = fluid.copy();
         copy.setStackSize(amount);

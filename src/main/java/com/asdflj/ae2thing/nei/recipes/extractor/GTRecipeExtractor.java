@@ -11,8 +11,8 @@ import com.asdflj.ae2thing.nei.object.OrderStack;
 import com.asdflj.ae2thing.nei.recipes.FluidRecipe;
 
 import codechicken.nei.PositionedStack;
+import codechicken.nei.recipe.StackInfo;
 import gregtech.api.recipe.RecipeCategory;
-import gregtech.api.util.GTUtility;
 import gregtech.nei.GTNEIDefaultHandler.FixedPositionedStack;
 
 public class GTRecipeExtractor implements IRecipeExtractor {
@@ -57,30 +57,8 @@ public class GTRecipeExtractor implements IRecipeExtractor {
     }
 
     private static FluidStack getFluid(PositionedStack positioned) {
-        // GT5 new versions use FixedPositionedStack.fluidAlternatives instead of IFluidAlternativeStack
-        if (positioned instanceof FixedPositionedStack fixed) {
-            try {
-                Object fluidAlts = fixed.getClass()
-                    .getField("fluidAlternatives")
-                    .get(fixed);
-                if (fluidAlts instanceof List<?>alternatives && !alternatives.isEmpty()) {
-                    int selected = -1;
-                    try {
-                        selected = (int) fixed.getClass()
-                            .getField("selectedFluidIndex")
-                            .get(fixed);
-                    } catch (Exception ignored) {}
-
-                    if (selected >= 0 && selected < alternatives.size()) {
-                        Object alt = alternatives.get(selected);
-                        if (alt instanceof FluidStack fs) return fs;
-                    }
-                    // Return first alternative as default
-                    Object first = alternatives.get(0);
-                    if (first instanceof FluidStack fs) return fs.copy();
-                }
-            } catch (Exception ignored) {}
-        }
-        return positioned.item == null ? null : GTUtility.getFluidFromDisplayStack(positioned.item);
+        // NEI owns both its current fluid displays and the legacy GT display adapter.
+        // Filled buckets and cells are still item ingredients, not raw recipe fluids.
+        return StackInfo.isFluidDisplayItem(positioned.item) ? StackInfo.getFluid(positioned.item) : null;
     }
 }

@@ -41,6 +41,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IDisplayRepo;
 import appeng.api.util.DimensionalCoord;
 import appeng.client.gui.AEBaseGui;
@@ -116,6 +117,15 @@ public class Util {
                 return false;
             }
 
+            // Replanning can be triggered after the original request (for example when
+            // the player changes crafting mode). Keep legacy fluid marker stacks from
+            // leaking back into AE2's native crafting calculator.
+            IAEStack<?> itemToCraft = PatternStackCodec.normalize(c.getItemToCraft());
+            if (itemToCraft == null) {
+                return false;
+            }
+            c.setItemToCraft(itemToCraft);
+
             Future<ICraftingJob> futureJob = null;
             try {
                 final ICraftingGrid cg = g.getCache(ICraftingGrid.class);
@@ -124,7 +134,7 @@ public class Util {
                         c.getWorld(),
                         g,
                         c.getActionSource(),
-                        c.getItemToCraft(),
+                        itemToCraft,
                         craftingMode == null ? CraftingMode.STANDARD : craftingMode,
                         liteMode,
                         null);

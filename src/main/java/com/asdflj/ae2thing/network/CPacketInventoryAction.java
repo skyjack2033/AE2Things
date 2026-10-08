@@ -12,6 +12,7 @@ import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.BlockPos;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 
 import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
@@ -28,7 +29,7 @@ import io.netty.handler.codec.EncoderException;
 public class CPacketInventoryAction implements IMessage {
 
     static IAEStack<?> normalizeCraftingStack(IAEStack<?> stack) {
-        return stack;
+        return PatternStackCodec.normalize(stack);
     }
 
     public static void openCraftAmount(AEBaseContainer baseContainer, EntityPlayerMP sender, IAEStack<?> requestedStack) {

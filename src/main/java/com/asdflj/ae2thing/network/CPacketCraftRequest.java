@@ -15,6 +15,7 @@ import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.BlockPos;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 
 import appeng.api.config.CraftingMode;
 import appeng.api.networking.IGrid;
@@ -136,7 +137,12 @@ public class CPacketCraftRequest implements IMessage {
                         return null;
                     }
 
-                    cca.getItemToCraft().setStackSize(message.amount);
+                    IAEStack<?> itemToCraft = PatternStackCodec.normalize(cca.getItemToCraft());
+                    if (itemToCraft == null) {
+                        return null;
+                    }
+                    cca.setItemToCraft(itemToCraft);
+                    itemToCraft.setStackSize(message.amount);
 
                     Future<ICraftingJob> futureJob = null;
                     try {
@@ -146,7 +152,7 @@ public class CPacketCraftRequest implements IMessage {
                                 cca.getWorld(),
                                 cca.getGrid(),
                                 cca.getActionSrc(),
-                                cca.getItemToCraft(),
+                                itemToCraft,
                                 message.craftingMode,
                                 false,
                                 null);
@@ -155,7 +161,7 @@ public class CPacketCraftRequest implements IMessage {
                                 cca.getWorld(),
                                 cca.getGrid(),
                                 cca.getActionSrc(),
-                                cca.getItemToCraft(),
+                                itemToCraft,
                                 null);
                         }
 
@@ -179,7 +185,7 @@ public class CPacketCraftRequest implements IMessage {
                             }
 
                             if (player.openContainer instanceof final ContainerCraftConfirm ccc) {
-                                ccc.setItemToCraft(cca.getItemToCraft());
+                                ccc.setItemToCraft(itemToCraft);
                                 ccc.setAutoStart(message.heldShift);
                                 ccc.setJob(futureJob);
                                 cca.detectAndSendChanges();
@@ -207,14 +213,16 @@ public class CPacketCraftRequest implements IMessage {
                     }
                     Future<ICraftingJob> futureJob = null;
                     try {
+                        IAEStack<?> requestedStack = PatternStackCodec.normalize(message.item);
+                        if (requestedStack == null) return null;
                         IStorageGrid storageGrid = g.getCache(IStorageGrid.class);
                         if(storageGrid == null) return null;
                         IAEStack<?> storedStack = null;
-                        if (message.item instanceof IAEItemStack itemStack) {
+                        if (requestedStack instanceof IAEItemStack itemStack) {
                             storedStack = storageGrid.getItemInventory()
                                 .getStorageList()
                                 .findPrecise(itemStack);
-                        } else if (message.item instanceof IAEFluidStack fluidStack) {
+                        } else if (requestedStack instanceof IAEFluidStack fluidStack) {
                             storedStack = storageGrid.getFluidInventory()
                                 .getStorageList()
                                 .findPrecise(fluidStack);
@@ -227,7 +235,7 @@ public class CPacketCraftRequest implements IMessage {
                                 player.getEntityWorld(),
                                 ((IActionHost)target).getActionableNode().getGrid(),
                                 new PlayerSource(player, (IActionHost)target),
-                                message.item,
+                                requestedStack,
                                 message.craftingMode,
                                 false,
                                 null);
@@ -236,7 +244,7 @@ public class CPacketCraftRequest implements IMessage {
                                 player.getEntityWorld(),
                                 ((IActionHost)target).getActionableNode().getGrid(),
                                 new PlayerSource(player, (IActionHost)target),
-                                message.item,
+                                requestedStack,
                                 null);
                         }
                         final ContainerOpenContext context = c.getOpenContext();
@@ -248,7 +256,7 @@ public class CPacketCraftRequest implements IMessage {
                                 }
                             }
                             if (player.openContainer instanceof final ContainerCraftConfirm ccc) {
-                                ccc.setItemToCraft(message.item);
+                                ccc.setItemToCraft(requestedStack);
                                 ccc.setAutoStart(message.heldShift);
                                 ccc.setJob(futureJob);
                                 ccc.detectAndSendChanges();
