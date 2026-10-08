@@ -434,6 +434,10 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         return this.craftingMode;
     }
 
+    public boolean allowsInputSubstitution() {
+        return this.patternPanel.allowsInputSubstitution();
+    }
+
     public void setCrafting(boolean craftingMode) {
         this.craftingMode = craftingMode;
         this.it.setCraftingRecipe(craftingMode);

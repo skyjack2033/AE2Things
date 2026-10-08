@@ -134,8 +134,14 @@ public class CPacketTerminalBtns implements IMessage {
                     case "PatternTerminal.Double" -> {
                         if (intValue != null) cpt.doubleStacks(intValue);
                     }
-                    case "PatternTerminal.Substitute" -> cpt.getPatternTerminal()
-                        .setSubstitution(value.equals("1"));
+                    case "PatternTerminal.Substitute" -> {
+                        boolean enable = value.equals("1");
+                        if (!enable || !(c instanceof ContainerWirelessDualInterfaceTerminal terminal)
+                            || terminal.allowsInputSubstitution()) {
+                            cpt.getPatternTerminal()
+                                .setSubstitution(enable);
+                        }
+                    }
                     case "PatternTerminal.Invert" -> cpt.getPatternTerminal()
                         .setInverted(value.equals("1"));
                     case "PatternTerminal.beSubstitute" -> cpt.getPatternTerminal()

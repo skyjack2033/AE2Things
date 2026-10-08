@@ -169,7 +169,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     public void detectAndSendChanges() {
         if (Platform.isServer()) {
-            this.container.substitute = this.it.isSubstitution();
+            this.container.substitute = this.it.isSubstitution() && allowsInputSubstitution();
             this.container.combine = this.it.shouldCombine();
             this.container.beSubstitute = this.it.canBeSubstitute();
             this.container.craftingMode = this.it.isCraftingRecipe();
@@ -183,6 +183,18 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
                 this.updateOrderOfOutputSlots();
             }
         }
+    }
+
+    public boolean allowsInputSubstitution() {
+        boolean craftingMode = Platform.isServer() ? this.it.isCraftingRecipe() : this.container.isCraftingMode();
+        return craftingMode || !containsFluidMarker(this.craftingEx) && !containsFluidMarker(this.outputEx);
+    }
+
+    private static boolean containsFluidMarker(IInventory inventory) {
+        for (int slot = 0; slot < inventory.getSizeInventory(); slot++) {
+            if (PatternStackCodec.isFluidMarker(inventory.getStackInSlot(slot))) return true;
+        }
+        return false;
     }
 
     private void updateOrderOfOutputSlots() {

@@ -72,9 +72,18 @@ public final class PatternStackCodec {
         data.setTag("in", in);
         data.setTag("out", out);
         data.setBoolean("crafting", false);
-        data.setBoolean("substitute", substitute);
+        // Legacy FC fluid patterns used exact inputs; broad ore matches can select the wrong GT metadata.
+        data.setBoolean("substitute", substitute && !containsFluid(inputs) && !containsFluid(outputs));
         data.setBoolean("beSubstitute", beSubstitute);
         return data;
+    }
+
+    private static boolean containsFluid(IAEStack<?>[] stacks) {
+        for (IAEStack<?> stack : stacks) {
+            IAEStack<?> nativeStack = normalize(stack);
+            if (nativeStack != null && nativeStack.isFluid()) return true;
+        }
+        return false;
     }
 
     private static NBTTagList writeStacks(IAEStack<?>[] stacks, boolean keepEmptySlots) {

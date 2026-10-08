@@ -56,6 +56,7 @@ public class PatternModifierStacksTest {
 
         NBTTagCompound data = PatternStackCodec.processingData(inputs, outputs, true, false);
         assertNotNull(data);
+        assertFalse(data.getBoolean("substitute"));
         NBTTagList in = data.getTagList("in", 10);
         NBTTagList out = data.getTagList("out", 10);
         assertEquals(3, in.tagCount());

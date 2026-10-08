@@ -100,8 +100,12 @@ public class PatternPanel implements IAEBasePanel {
 
     @Override
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
-        updateButton(this.substitutionsEnabledBtn, this.container.substitute);
-        updateButton(this.substitutionsDisabledBtn, !this.container.substitute);
+        boolean allowsSubstitution = this.container.allowsInputSubstitution();
+        boolean substitute = allowsSubstitution && this.container.substitute;
+        updateButton(this.substitutionsEnabledBtn, substitute);
+        updateButton(this.substitutionsDisabledBtn, !substitute);
+        this.substitutionsEnabledBtn.enabled = allowsSubstitution;
+        this.substitutionsDisabledBtn.enabled = allowsSubstitution;
         updateButton(this.combineEnableBtn, this.container.combine);
         updateButton(this.combineDisableBtn, !this.container.combine);
         updateButton(this.beSubstitutionsEnabledBtn, this.container.beSubstitute);
@@ -412,6 +416,7 @@ public class PatternPanel implements IAEBasePanel {
             AE2Thing.proxy.netHandler.sendToServer(new CPacketTerminalBtns("PatternTerminal.Clear", 1));
             return true;
         } else if (this.substitutionsEnabledBtn == btn || this.substitutionsDisabledBtn == btn) {
+            if (!this.container.allowsInputSubstitution()) return true;
             AE2Thing.proxy.netHandler.sendToServer(
                 new CPacketTerminalBtns("PatternTerminal.Substitute", this.substitutionsEnabledBtn == btn ? 0 : 1));
             return true;
