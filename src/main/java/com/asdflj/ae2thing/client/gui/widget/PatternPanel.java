@@ -59,8 +59,6 @@ public class PatternPanel implements IAEBasePanel {
     protected GuiImgButton encodeBtn;
     protected GuiImgButton substitutionsEnabledBtn;
     protected GuiImgButton substitutionsDisabledBtn;
-    protected GuiFCImgButton fluidPrioritizedEnabledBtn;
-    protected GuiFCImgButton fluidPrioritizedDisabledBtn;
     protected GuiImgButton invertBtn;
     protected GuiImgButton clearBtn;
     protected GuiImgButton doubleBtn;
@@ -108,8 +106,6 @@ public class PatternPanel implements IAEBasePanel {
         updateButton(this.combineDisableBtn, !this.container.combine);
         updateButton(this.beSubstitutionsEnabledBtn, this.container.beSubstitute);
         updateButton(this.beSubstitutionsDisabledBtn, !this.container.beSubstitute);
-        updateButton(this.fluidPrioritizedEnabledBtn, this.container.prioritize);
-        updateButton(this.fluidPrioritizedDisabledBtn, !this.container.prioritize);
         updateButton(this.tabCraftButton, this.container.isCraftingMode());
         updateButton(this.tabProcessButton, !this.container.isCraftingMode());
         this.processingScrollBar.setVisible(!this.container.isCraftingMode());
@@ -143,12 +139,6 @@ public class PatternPanel implements IAEBasePanel {
             beSubstitutionsDisabledBtn.xPosition = this.parent.getGuiLeft() + 291;
             beSubstitutionsDisabledBtn.yPosition = this.parent.getGuiTop() + 24;
 
-            fluidPrioritizedEnabledBtn.xPosition = -9000;
-            fluidPrioritizedEnabledBtn.yPosition = -9000;
-
-            fluidPrioritizedDisabledBtn.xPosition = -9000;
-            fluidPrioritizedDisabledBtn.yPosition = -9000;
-
             doubleBtn.xPosition = -9000;
             doubleBtn.yPosition = -9000;
 
@@ -177,12 +167,6 @@ public class PatternPanel implements IAEBasePanel {
 
             beSubstitutionsDisabledBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
             beSubstitutionsDisabledBtn.yPosition = this.parent.getGuiTop() + 69;
-
-            fluidPrioritizedEnabledBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
-            fluidPrioritizedEnabledBtn.yPosition = this.parent.getGuiTop() + 59;
-
-            fluidPrioritizedDisabledBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
-            fluidPrioritizedDisabledBtn.yPosition = this.parent.getGuiTop() + 59;
 
             doubleBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
             doubleBtn.yPosition = this.parent.getGuiTop() + 20;
@@ -244,24 +228,6 @@ public class PatternPanel implements IAEBasePanel {
         this.substitutionsDisabledBtn.setHalfSize(true);
         this.gui.getButtonList()
             .add(this.substitutionsDisabledBtn);
-
-        this.fluidPrioritizedEnabledBtn = new GuiFCImgButton(
-            this.parent.getGuiLeft() + 306,
-            this.parent.getGuiTop() + 59,
-            "FORCE_PRIO",
-            "DO_PRIO");
-        this.fluidPrioritizedEnabledBtn.setHalfSize(true);
-        this.gui.getButtonList()
-            .add(this.fluidPrioritizedEnabledBtn);
-
-        this.fluidPrioritizedDisabledBtn = new GuiFCImgButton(
-            this.parent.getGuiLeft() + 306,
-            this.parent.getGuiTop() + 59,
-            "NOT_PRIO",
-            "DONT_PRIO");
-        this.fluidPrioritizedDisabledBtn.setHalfSize(true);
-        this.gui.getButtonList()
-            .add(this.fluidPrioritizedDisabledBtn);
 
         this.invertBtn = new GuiImgButton(
             this.parent.getGuiLeft() + 296,
@@ -448,12 +414,6 @@ public class PatternPanel implements IAEBasePanel {
         } else if (this.substitutionsEnabledBtn == btn || this.substitutionsDisabledBtn == btn) {
             AE2Thing.proxy.netHandler.sendToServer(
                 new CPacketTerminalBtns("PatternTerminal.Substitute", this.substitutionsEnabledBtn == btn ? 0 : 1));
-            return true;
-        } else if (this.fluidPrioritizedEnabledBtn == btn || this.fluidPrioritizedDisabledBtn == btn) {
-            AE2Thing.proxy.netHandler.sendToServer(
-                new CPacketTerminalBtns(
-                    "PatternTerminal.Prioritize",
-                    isShiftKeyDown() ? 2 : (container.prioritize ? 0 : 1)));
             return true;
         } else if (this.invertBtn == btn) {
             AE2Thing.proxy.netHandler

@@ -136,14 +136,6 @@ public class CPacketTerminalBtns implements IMessage {
                     }
                     case "PatternTerminal.Substitute" -> cpt.getPatternTerminal()
                         .setSubstitution(value.equals("1"));
-                    case "PatternTerminal.Prioritize" -> {
-                        switch (value) {
-                            case "0", "1" -> cpt.getPatternTerminal()
-                                .setPrioritization(value.equals("1"));
-                            case "2" -> cpt.getPatternTerminal()
-                                .sortCraftingItems();
-                        }
-                    }
                     case "PatternTerminal.Invert" -> cpt.getPatternTerminal()
                         .setInverted(value.equals("1"));
                     case "PatternTerminal.beSubstitute" -> cpt.getPatternTerminal()

@@ -172,7 +172,6 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
             this.container.substitute = this.it.isSubstitution();
             this.container.combine = this.it.shouldCombine();
             this.container.beSubstitute = this.it.canBeSubstitute();
-            this.container.prioritize = this.it.isPrioritize();
             this.container.craftingMode = this.it.isCraftingRecipe();
             if (container.inverted != it.isInverted() || container.activePage != it.getActivePage()) {
                 container.inverted = it.isInverted();
@@ -465,7 +464,6 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
         encodedValue.setBoolean("crafting", this.container.craftingMode);
         encodedValue.setBoolean("substitute", this.container.substitute);
         encodedValue.setBoolean("beSubstitute", this.container.beSubstitute);
-        encodedValue.setBoolean("prioritize", this.container.prioritize);
         output.setTagCompound(encodedValue);
         stampAuthor(output);
         return storeEncodedPattern(this.patternSlotIN, this.patternSlotOUT, output);
@@ -548,8 +546,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
             collectInventory(this.craftingExSlots),
             collectInventory(this.outputExSlots),
             this.container.substitute,
-            this.container.beSubstitute,
-            this.container.prioritize);
+            this.container.beSubstitute);
         if (data == null) return null;
         ItemStack pattern = AEApi.instance()
             .definitions()

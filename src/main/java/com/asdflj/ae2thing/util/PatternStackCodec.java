@@ -64,7 +64,7 @@ public final class PatternStackCodec {
     }
 
     public static NBTTagCompound processingData(IAEStack<?>[] inputs, IAEStack<?>[] outputs, boolean substitute,
-        boolean beSubstitute, boolean prioritize) {
+        boolean beSubstitute) {
         NBTTagList in = writeStacks(inputs, true);
         NBTTagList out = writeStacks(outputs, false);
         if (in == null || out == null) return null;
@@ -74,7 +74,6 @@ public final class PatternStackCodec {
         data.setBoolean("crafting", false);
         data.setBoolean("substitute", substitute);
         data.setBoolean("beSubstitute", beSubstitute);
-        data.setBoolean("prioritize", prioritize);
         return data;
     }
 

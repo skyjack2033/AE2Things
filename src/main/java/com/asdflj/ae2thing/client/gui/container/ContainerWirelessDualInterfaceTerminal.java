@@ -95,9 +95,6 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     @GuiSync(92)
     public int activePage = 0;
 
-    @GuiSync(91)
-    public boolean prioritize = false;
-
     private final IPatternTerminal it;
 
     public ContainerWirelessDualInterfaceTerminal(InventoryPlayer ip, ITerminalHost monitorable) {

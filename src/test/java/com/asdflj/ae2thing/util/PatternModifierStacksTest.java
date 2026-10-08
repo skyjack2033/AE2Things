@@ -54,7 +54,7 @@ public class PatternModifierStacksTest {
             target,
             slot -> true);
 
-        NBTTagCompound data = PatternStackCodec.processingData(inputs, outputs, true, false, false);
+        NBTTagCompound data = PatternStackCodec.processingData(inputs, outputs, true, false);
         assertNotNull(data);
         NBTTagList in = data.getTagList("in", 10);
         NBTTagList out = data.getTagList("out", 10);

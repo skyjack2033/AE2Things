@@ -8,9 +8,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
-
 import com.asdflj.ae2thing.nei.object.IRecipeExtractor;
 import com.asdflj.ae2thing.nei.object.IRecipeExtractorLegacy;
 import com.asdflj.ae2thing.nei.object.OrderStack;
@@ -37,7 +34,7 @@ public final class FluidRecipe {
         }
     }
 
-    public static List<OrderStack<?>> getPackageInputs(IRecipeHandler recipe, int index, boolean priority) {
+    public static List<OrderStack<?>> getPackageInputs(IRecipeHandler recipe, int index) {
         TemplateRecipeHandler tRecipe = (TemplateRecipeHandler) recipe;
         if (tRecipe == null) return new ArrayList<>();
         if (!IdentifierMap.containsKey(tRecipe.getOverlayIdentifier())) return getDefaultPackageInputs(tRecipe, index);
@@ -45,23 +42,7 @@ public final class FluidRecipe {
         IRecipeExtractor extractor = IdentifierMap.get(tRecipe.getOverlayIdentifier());
         if (extractor == null) return new ArrayList<>();
         List<PositionedStack> tmp = new ArrayList<>(tRecipe.getIngredientStacks(index));
-        List<OrderStack<?>> out = extractor.getInputIngredients(tmp, recipe, index);
-        if (priority) {
-            List<OrderStack<?>> reordered = new ArrayList<>();
-            byte numFluids = 0;
-            for (OrderStack<?> orderStack : out) {
-                if (orderStack != null && orderStack.getStack() instanceof FluidStack) {
-                    reordered.add(new OrderStack<>(orderStack.getStack(), numFluids++));
-                }
-            }
-            for (OrderStack<?> orderStack : out) {
-                if (orderStack != null && orderStack.getStack() instanceof ItemStack) {
-                    reordered.add(new OrderStack<>(orderStack.getStack(), numFluids++));
-                }
-            }
-            return reordered;
-        }
-        return out;
+        return extractor.getInputIngredients(tmp, recipe, index);
     }
 
     private static List<OrderStack<?>> getDefaultPackageInputs(TemplateRecipeHandler tRecipe, int index) {

@@ -90,11 +90,6 @@ public class PartInfusionPatternTerminal extends THPart implements IPatternTermi
     }
 
     @Override
-    public void setPrioritization(boolean canPrioritize) {
-
-    }
-
-    @Override
     public void setInverted(boolean inverted) {
 
     }
@@ -236,11 +231,6 @@ public class PartInfusionPatternTerminal extends THPart implements IPatternTermi
 
     @Override
     public boolean canBeSubstitute() {
-        return false;
-    }
-
-    @Override
-    public boolean isPrioritize() {
         return false;
     }
 

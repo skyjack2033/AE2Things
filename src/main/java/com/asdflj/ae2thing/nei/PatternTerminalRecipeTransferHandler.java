@@ -98,14 +98,12 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
     @Override
     public void overlayRecipe(GuiContainer firstGui, IRecipeHandler recipe, int recipeIndex, boolean shift) {
         if (firstGui instanceof GuiInfusionPatternTerminal) {
-            List<OrderStack<?>> in = FluidRecipe.getPackageInputs(recipe, recipeIndex, false);
+            List<OrderStack<?>> in = FluidRecipe.getPackageInputs(recipe, recipeIndex);
             List<OrderStack<?>> out = FluidRecipe.getPackageOutputs(recipe, recipeIndex, false);
             AE2Thing.proxy.netHandler.sendToServer(new CPacketTransferRecipe(out, in, true, shift));
         } else if (firstGui instanceof GuiWirelessDualInterfaceTerminal) {
-            boolean priority = ((GuiWirelessDualInterfaceTerminal) firstGui).container.prioritize;
             boolean craft = shouldCraft(recipe);
-            List<OrderStack<?>> in;
-            in = FluidRecipe.getPackageInputs(recipe, recipeIndex, !craft && priority);
+            List<OrderStack<?>> in = FluidRecipe.getPackageInputs(recipe, recipeIndex);
             setSuggestion(craft, recipe, (GuiWirelessDualInterfaceTerminal) firstGui, in);
             if (Mods.PROGRAMMABLE_HATCHES.isModLoaded() && !craft) {
                 in = PHUtil.transfer(in);

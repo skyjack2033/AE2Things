@@ -12,8 +12,6 @@ public interface IPatternTerminal extends INetworkTerminal {
 
     boolean canBeSubstitute();
 
-    boolean isPrioritize();
-
     boolean isSubstitution();
 
     boolean shouldCombine();
@@ -26,8 +24,6 @@ public interface IPatternTerminal extends INetworkTerminal {
 
     void setCombineMode(boolean shouldCombine);
 
-    void setPrioritization(boolean canPrioritize);
-
     void setInverted(boolean inverted);
 
     int getActivePage();
@@ -35,8 +31,6 @@ public interface IPatternTerminal extends INetworkTerminal {
     void setActivePage(int activePage);
 
     boolean isCraftingRecipe();
-
-    default void sortCraftingItems() {}
 
     void saveSettings();
 

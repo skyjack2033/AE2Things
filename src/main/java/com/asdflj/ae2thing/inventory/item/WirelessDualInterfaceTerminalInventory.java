@@ -1,8 +1,5 @@
 package com.asdflj.ae2thing.inventory.item;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -18,7 +15,6 @@ import com.asdflj.ae2thing.inventory.ItemPatternsInventory;
 import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.asdflj.ae2thing.util.TerminalTypeFilters;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.common.item.ItemFluidPacket;
 
 import appeng.api.config.Settings;
 import appeng.api.config.SortDir;
@@ -52,7 +48,6 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     protected boolean craftingMode = false;
     protected boolean substitute = false;
     protected boolean combine = false;
-    protected boolean prioritize = false;
     protected boolean inverted = false;
     protected boolean beSubstitute = false;
     protected int activePage = 0;
@@ -96,7 +91,6 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
         this.setSubstitution(data.getBoolean("substitute"));
         this.setCombineMode(data.getBoolean("combine"));
         this.setBeSubstitute(data.getBoolean("beSubstitute"));
-        this.setPrioritization(data.getBoolean("priorization"));
         this.setInverted(data.getBoolean("inverted"));
         this.setActivePage(data.getInteger("activePage"));
         this.setCraftingRecipe(data.getBoolean("craftingMode"));
@@ -177,11 +171,6 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     }
 
     @Override
-    public void setPrioritization(boolean canPrioritize) {
-        this.prioritize = canPrioritize;
-    }
-
-    @Override
     public void setInverted(boolean inverted) {
         this.inverted = inverted;
     }
@@ -218,43 +207,8 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     }
 
     @Override
-    public boolean isPrioritize() {
-        return this.prioritize;
-    }
-
-    @Override
     public boolean isSubstitution() {
         return this.substitute;
-    }
-
-    @Override
-    public void sortCraftingItems() {
-        List<ItemStack> items = new ArrayList<>();
-        List<ItemStack> fluids = new ArrayList<>();
-        for (ItemStack is : this.craftingEx) {
-            if (is == null) continue;
-            if (is.getItem() instanceof ItemFluidPacket) {
-                fluids.add(is);
-            } else {
-                items.add(is);
-            }
-        }
-        if (this.prioritize) {
-            fluids.addAll(items);
-            items.clear();
-        } else {
-            items.addAll(fluids);
-            fluids.clear();
-        }
-
-        for (int i = 0; i < this.craftingEx.getSizeInventory(); i++) {
-            if (this.craftingEx.getStackInSlot(i) == null) break;
-            if (items.isEmpty()) {
-                this.craftingEx.setInventorySlotContents(i, fluids.get(i));
-            } else {
-                this.craftingEx.setInventorySlotContents(i, items.get(i));
-            }
-        }
     }
 
     @Override
@@ -362,7 +316,7 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
         data.setBoolean("substitute", this.substitute);
         data.setBoolean("combine", this.combine);
         data.setBoolean("beSubstitute", this.beSubstitute);
-        data.setBoolean("priorization", this.prioritize);
+        data.removeTag("priorization");
         data.setBoolean("inverted", this.inverted);
         data.setInteger("activePage", this.activePage);
         this.craftingEx.markDirty();

@@ -26,12 +26,12 @@ public class PatternStackCodecTest {
             new IAEStack<?>[] { fluid, null, stack("item", 2) },
             new IAEStack<?>[] { null, fluid },
             true,
-            false,
-            true);
+            false);
 
         assertNotNull(data);
         assertFalse(data.getBoolean("crafting"));
         assertTrue(data.getBoolean("substitute"));
+        assertFalse(data.hasKey("prioritize"));
         NBTTagList inputs = data.getTagList("in", 10);
         NBTTagList outputs = data.getTagList("out", 10);
         assertEquals(3, inputs.tagCount());
@@ -63,15 +63,13 @@ public class PatternStackCodecTest {
 
     @Test
     public void rejectsMissingOrEmptyProcessingSides() {
-        assertNull(PatternStackCodec.processingData(null, new IAEStack<?>[] { stack("item", 1) }, false, false, false));
+        assertNull(PatternStackCodec.processingData(null, new IAEStack<?>[] { stack("item", 1) }, false, false));
         assertNull(
-            PatternStackCodec
-                .processingData(new IAEStack<?>[] { stack("item", 1) }, new IAEStack<?>[0], false, false, false));
+            PatternStackCodec.processingData(new IAEStack<?>[] { stack("item", 1) }, new IAEStack<?>[0], false, false));
         assertNull(
             PatternStackCodec.processingData(
                 new IAEStack<?>[] { stack("item", 0) },
                 new IAEStack<?>[] { stack("item", 1) },
-                false,
                 false,
                 false));
     }
@@ -81,7 +79,6 @@ public class PatternStackCodecTest {
         NBTTagCompound data = PatternStackCodec.processingData(
             new IAEStack<?>[] { stack("item", 1) },
             new IAEStack<?>[] { null, stack("item", 1), null },
-            false,
             false,
             false);
 
