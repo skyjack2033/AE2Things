@@ -63,7 +63,8 @@ public final class PatternStackCodec {
         return null;
     }
 
-    public static NBTTagCompound processingData(IAEStack<?>[] inputs, IAEStack<?>[] outputs, boolean beSubstitute) {
+    public static NBTTagCompound processingData(IAEStack<?>[] inputs, IAEStack<?>[] outputs, boolean substitute,
+        boolean beSubstitute) {
         NBTTagList in = writeStacks(inputs, true);
         NBTTagList out = writeStacks(outputs, false);
         if (in == null || out == null) return null;
@@ -71,10 +72,18 @@ public final class PatternStackCodec {
         data.setTag("in", in);
         data.setTag("out", out);
         data.setBoolean("crafting", false);
-        // AE cannot validate processing substitutes; shared ore names can match waferILC to waferPlain.
-        data.setBoolean("substitute", false);
+        // Legacy FC fluid patterns used exact inputs; broad ore matches can select the wrong GT metadata.
+        data.setBoolean("substitute", substitute && !containsFluid(inputs) && !containsFluid(outputs));
         data.setBoolean("beSubstitute", beSubstitute);
         return data;
+    }
+
+    private static boolean containsFluid(IAEStack<?>[] stacks) {
+        for (IAEStack<?> stack : stacks) {
+            IAEStack<?> nativeStack = normalize(stack);
+            if (nativeStack != null && nativeStack.isFluid()) return true;
+        }
+        return false;
     }
 
     private static NBTTagList writeStacks(IAEStack<?>[] stacks, boolean keepEmptySlots) {
