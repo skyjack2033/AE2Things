@@ -3,6 +3,7 @@ package com.asdflj.ae2thing.coremod;
 import javax.annotation.Nonnull;
 
 import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.util.InterfaceRecipeMaps;
 import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
@@ -40,6 +41,11 @@ public enum Mixins implements IMixins {
     BOTANIA_NEI(new MixinBuilder().addClientMixins("botania.MixinRecipeHandlerBrewery")
         .addRequiredMod(Mods.BOTANIA)
         .addRequiredMod(Mods.NOT_ENOUGH_ITEMS)
+        .setPhase(Phase.LATE)),
+
+    GREGTECH(new MixinBuilder().addCommonMixins("gt.MixinMTEHatch")
+        .addRequiredMod(Mods.GREGTECH)
+        .setApplyIf(InterfaceRecipeMaps::isSupported)
         .setPhase(Phase.LATE)),
 
     NEI(new MixinBuilder()

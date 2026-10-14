@@ -1,6 +1,8 @@
 package com.asdflj.ae2thing.client.gui.container;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -11,6 +13,7 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.common.util.Constants.NBT;
@@ -21,11 +24,13 @@ import net.minecraftforge.fluids.IFluidContainerItem;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
 import com.asdflj.ae2thing.client.gui.container.widget.IWidgetPatternContainer;
 import com.asdflj.ae2thing.client.gui.container.widget.PatternContainer;
 import com.asdflj.ae2thing.common.item.ItemPatternModifier;
 import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.integration.gtnl.AssemblerMatrixIntegration;
 import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.item.INetworkTerminal;
 import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
@@ -41,6 +46,7 @@ import com.glodblock.github.util.Util;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
+import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
@@ -70,6 +76,8 @@ import appeng.parts.p2p.PartP2PTunnel;
 import appeng.tile.inventory.InvOperation;
 import appeng.util.PatternMultiplierHelper;
 import appeng.util.Platform;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     implements IContainerCraftingPacket, IWidgetPatternContainer, IConfigurableObject {
@@ -110,6 +118,15 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     private void lockSlot() {
         if (this.it instanceof WirelessTerminal wirelessTerminal) {
             this.lockPlayerInventorySlot(wirelessTerminal.getInventorySlot());
+        }
+    }
+
+    @SideOnly(Side.CLIENT)
+    public void updateInterfaceRecipeMaps(int windowId, Map<Long, Set<String>> recipeMaps) {
+        if (this.windowId == windowId && getGui() instanceof GuiBaseInterfaceWireless gui
+            && gui.inventorySlots == this) {
+            // NEI can temporarily replace currentScreen while this terminal and its container stay open.
+            gui.updateRecipeMaps(windowId, recipeMaps);
         }
     }
 
@@ -511,8 +528,50 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         if (this.patternPanel.encodeForUpload() && result != null) {
             placePattern(slot, result.right);
         }
+        this.patternPanel.refillBlankPatterns();
         this.saveChanges();
         this.detectAndSendChanges();
+    }
+
+    public void uploadToAssemblerMatrix(int windowId) {
+        if (windowId != this.windowId || !AssemblerMatrixIntegration.isAvailable()
+            || !this.it.isCraftingRecipe()
+            || !canEditInterfaces()) return;
+        IGridNode node = this.getNetworkNode();
+        if (node == null || !node.isActive() || node.getGrid() == null) return;
+        try {
+            Slot output = this.patternPanel.getPatternOutputSlot();
+            // The GTNL button uploads an existing pattern, or encodes the current recipe if the output is empty.
+            if (!output.getHasStack() && !this.patternPanel.encodeForUpload()) return;
+            ItemStack pattern = output.getStack();
+            if (pattern == null || pattern.stackSize <= 0) return;
+            ItemStack single = pattern.copy();
+            single.stackSize = 1;
+            AssemblerMatrixIntegration.Result result = AssemblerMatrixIntegration
+                .upload(node.getGrid(), single, this.player.worldObj);
+            if (result == AssemblerMatrixIntegration.Result.DUPLICATE) {
+                ItemStack blank = AEApi.instance()
+                    .definitions()
+                    .materials()
+                    .blankPattern()
+                    .maybeStack(pattern.stackSize)
+                    .orNull();
+                if (blank == null) return;
+                output.putStack(null);
+                this.dropItem(blank);
+                this.player
+                    .addChatMessage(new ChatComponentTranslation("gtnl.machine.assembler_matrix.pattern_exists"));
+            } else if (result == AssemblerMatrixIntegration.Result.UPLOADED) {
+                ItemStack remaining = pattern.stackSize == 1 ? null : pattern.copy();
+                if (remaining != null) remaining.stackSize--;
+                output.putStack(remaining);
+                this.delegateContainer.scheduleUpdate();
+            }
+        } finally {
+            this.patternPanel.refillBlankPatterns();
+            this.saveChanges();
+            this.detectAndSendChanges();
+        }
     }
 
     private void placePattern(int slot, IInterfaceViewable host) {

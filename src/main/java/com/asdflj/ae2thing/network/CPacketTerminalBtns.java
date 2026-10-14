@@ -122,6 +122,11 @@ public class CPacketTerminalBtns implements IMessage {
                             case "3" -> cpt.encodeAllItemAndMoveToInventory();
                         }
                     }
+                    case "PatternTerminal.UploadToAssemblerMatrix" -> {
+                        if (intValue != null && c instanceof ContainerWirelessDualInterfaceTerminal terminal) {
+                            terminal.uploadToAssemblerMatrix(intValue);
+                        }
+                    }
                     case "PatternTerminal.CraftMode" -> cpt.getPatternTerminal()
                         .setCraftingRecipe(value.equals("1"));
                     case "PatternTerminal.Combine" -> cpt.getPatternTerminal()

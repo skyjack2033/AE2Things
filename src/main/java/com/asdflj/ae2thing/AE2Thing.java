@@ -27,6 +27,7 @@ import cpw.mods.fml.common.network.NetworkRegistry;
     modid = AE2Thing.MODID,
     version = Tags.VERSION,
     name = AE2Thing.NAME,
+    guiFactory = "com.asdflj.ae2thing.client.config.AE2ThingGuiFactory",
     dependencies = "required-after:appliedenergistics2;required-after:ae2fc;required-after:NotEnoughItems;after:ae2stuff;after:thaumicenergistics;after:ic2")
 public class AE2Thing {
 

@@ -1,7 +1,6 @@
 package com.asdflj.ae2thing.util;
 
 import static com.asdflj.ae2thing.api.Constants.MessageType.UPDATE_PLAYER_ITEM;
-import static com.asdflj.ae2thing.nei.NEI_TH_Config.getConfigValue;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,8 +15,7 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 
 import com.asdflj.ae2thing.AE2Thing;
-import com.asdflj.ae2thing.integration.Mods;
-import com.asdflj.ae2thing.nei.ButtonConstants;
+import com.asdflj.ae2thing.common.Config;
 import com.asdflj.ae2thing.nei.object.OrderStack;
 import com.asdflj.ae2thing.network.SPacketMEItemInvUpdate;
 
@@ -57,17 +55,40 @@ public class GTUtil {
         if (recipe instanceof GTNEIDefaultHandler gtRecipe) {
             // The window title can be cropped and have an overclock tier appended.
             String recipeName = gtRecipe.getRecipeTabName();
-            if (Mods.PROGRAMMABLE_HATCHES.isModLoaded()
-                && getConfigValue(ButtonConstants.DUAL_INTERFACE_TERMINAL_FILL_CIRCUIT)) {
-                return recipeName;
-            }
-            if (getConfigValue(ButtonConstants.DUAL_INTERFACE_TERMINAL_APPEND_CIRCUIT_DAMAGE)) {
-                return RecipeSearchTerms
-                    .appendNonConsumedItems(recipeName, in, stack -> stack.getItem() instanceof ItemIntegratedCircuit);
-            }
-            return recipeName;
+            return RecipeSearchTerms.appendNonConsumedItems(
+                recipeName,
+                in,
+                stack -> stack.getItem() instanceof ItemIntegratedCircuit,
+                Config.interfaceTerminalAppendCircuitNumbers,
+                Config.interfaceTerminalAppendNonConsumedItems);
         }
         return recipe.getRecipeName();
+    }
+
+    public static String getRecipeMapId(IRecipeHandler recipe) {
+        if (recipe instanceof GTNEIDefaultHandler gtRecipe && gtRecipe.getRecipeMap() != null) {
+            return gtRecipe.getRecipeMap().unlocalizedName;
+        }
+        return "";
+    }
+
+    public static String getRecipeSearchTerms(IRecipeHandler recipe, List<OrderStack<?>> inputs) {
+        return getRecipeSearchTerms(
+            recipe,
+            inputs,
+            Config.interfaceTerminalAppendCircuitNumbers,
+            Config.interfaceTerminalAppendNonConsumedItems);
+    }
+
+    public static String getRecipeSearchTerms(IRecipeHandler recipe, List<OrderStack<?>> inputs, boolean appendCircuits,
+        boolean appendOtherItems) {
+        if (!(recipe instanceof GTNEIDefaultHandler)) return "";
+        return RecipeSearchTerms.appendNonConsumedItems(
+            "",
+            inputs,
+            stack -> stack.getItem() instanceof ItemIntegratedCircuit,
+            appendCircuits,
+            appendOtherItems);
     }
 
     public static void setDataStick(int x, int y, int z, EntityPlayer player, World w) {

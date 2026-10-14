@@ -17,19 +17,25 @@ final class RecipeSearchTerms {
 
     static String appendNonConsumedItems(String recipeName, List<OrderStack<?>> inputs,
         Predicate<ItemStack> isIntegratedCircuit) {
+        return appendNonConsumedItems(recipeName, inputs, isIntegratedCircuit, true, true);
+    }
+
+    static String appendNonConsumedItems(String recipeName, List<OrderStack<?>> inputs,
+        Predicate<ItemStack> isIntegratedCircuit, boolean appendCircuits, boolean appendOtherItems) {
         Set<String> terms = new LinkedHashSet<>();
         for (OrderStack<?> input : inputs) {
             if (input == null || !(input.getStack() instanceof ItemStack stack) || stack.stackSize != 0) {
                 continue;
             }
             if (isIntegratedCircuit.test(stack)) {
-                terms.add(Integer.toString(stack.getItemDamage()));
-            } else {
+                if (appendCircuits) terms.add(Integer.toString(stack.getItemDamage()));
+            } else if (appendOtherItems) {
                 String name = shortItemName(stack.getDisplayName());
                 if (!name.isEmpty()) terms.add(name);
             }
         }
-        return terms.isEmpty() ? recipeName : recipeName + " " + String.join(" ", terms);
+        return terms.isEmpty() ? recipeName
+            : (recipeName.isEmpty() ? "" : recipeName + " ") + String.join(" ", terms);
     }
 
     private static String shortItemName(String displayName) {

@@ -8,6 +8,7 @@ import static net.minecraft.client.gui.GuiScreen.isShiftKeyDown;
 import java.util.Set;
 
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.init.Blocks;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -22,6 +23,7 @@ import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.IWidgetGui;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
+import com.asdflj.ae2thing.integration.gtnl.AssemblerMatrixIntegration;
 import com.asdflj.ae2thing.network.CPacketInventoryActionExtend;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.proxy.ClientProxy;
@@ -68,6 +70,7 @@ public class PatternPanel implements IAEBasePanel {
     protected GuiFCImgButton combineDisableBtn;
     protected GuiTabButton tabProcessButton;
     protected GuiTabButton tabCraftButton;
+    private GuiTabButton uploadToMatrixBtn;
     protected final GuiScrollbar processingScrollBar = new GuiScrollbar();
     private final AEBaseContainer inventorySlots;
     protected final Set<Slot> drag_click;
@@ -112,6 +115,7 @@ public class PatternPanel implements IAEBasePanel {
         updateButton(this.beSubstitutionsDisabledBtn, !this.container.beSubstitute);
         updateButton(this.tabCraftButton, this.container.isCraftingMode());
         updateButton(this.tabProcessButton, !this.container.isCraftingMode());
+        updateButton(this.uploadToMatrixBtn, this.container.isCraftingMode());
         this.processingScrollBar.setVisible(!this.container.isCraftingMode());
         this.processingScrollBar.draw(this.parent);
     }
@@ -215,6 +219,19 @@ public class PatternPanel implements IAEBasePanel {
                     new ItemStack(Blocks.crafting_table),
                     GuiText.CraftingPattern.getLocal(),
                     this.gui.getRenderItem()));
+        this.uploadToMatrixBtn = null;
+        if (AssemblerMatrixIntegration.isAvailable()) {
+            ItemStack icon = AssemblerMatrixIntegration.getIcon();
+            this.uploadToMatrixBtn = new GuiTabButton(
+                this.parent.getGuiLeft() + 248,
+                this.parent.getGuiTop() + 141,
+                icon == null ? new ItemStack(Blocks.crafting_table) : icon,
+                I18n.format("gtnl.gui.assembler_matrix.upload_pattern"),
+                this.gui.getRenderItem());
+            this.uploadToMatrixBtn.visible = this.container.isCraftingMode();
+            this.gui.getButtonList()
+                .add(this.uploadToMatrixBtn);
+        }
         this.substitutionsEnabledBtn = new GuiImgButton(
             this.parent.getGuiLeft() + 306,
             this.parent.getGuiTop() + 10,
@@ -391,7 +408,13 @@ public class PatternPanel implements IAEBasePanel {
 
     @Override
     public boolean actionPerformed(GuiButton btn) {
-        if (this.tabCraftButton == btn || this.tabProcessButton == btn) {
+        if (this.uploadToMatrixBtn != null && this.uploadToMatrixBtn == btn) {
+            if (this.container.isCraftingMode()) {
+                AE2Thing.proxy.netHandler.sendToServer(
+                    new CPacketTerminalBtns("PatternTerminal.UploadToAssemblerMatrix", this.container.windowId));
+            }
+            return true;
+        } else if (this.tabCraftButton == btn || this.tabProcessButton == btn) {
             AE2Thing.proxy.netHandler.sendToServer(
                 new CPacketTerminalBtns(
                     "PatternTerminal.CraftMode",

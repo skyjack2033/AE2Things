@@ -1,6 +1,10 @@
 package com.asdflj.ae2thing.coremod.mixin.ae;
 
 import java.util.Map;
+import java.util.Set;
+
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -9,9 +13,14 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import com.asdflj.ae2thing.AE2Thing;
+import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
+import com.asdflj.ae2thing.network.SPacketInterfaceRecipeMaps;
 import com.asdflj.ae2thing.util.InterfacePatternInventory;
+import com.asdflj.ae2thing.util.InterfaceRecipeMaps;
 
 import appeng.api.util.IInterfaceViewable;
 import appeng.container.implementations.ContainerInterfaceTerminal;
@@ -26,6 +35,47 @@ public abstract class MixinContainerInterfaceTerminal {
 
     @Unique
     private int ae2thing$patternRefreshTicks;
+
+    @Unique
+    private int ae2thing$recipeMapRefreshTicks;
+
+    @Unique
+    private boolean ae2thing$recipeMapRefreshPending;
+
+    @Unique
+    private Map<Long, Set<String>> ae2thing$lastRecipeMaps;
+
+    @Inject(method = "detectAndSendChanges", at = @At("HEAD"), require = 1)
+    private void ae2thing$scheduleRecipeMaps(CallbackInfo ci) {
+        if (this.ae2thing$getWirelessContainer() == null) return;
+        if (this.ae2thing$lastRecipeMaps == null || ++this.ae2thing$recipeMapRefreshTicks >= 10) {
+            this.ae2thing$recipeMapRefreshTicks = 0;
+            this.ae2thing$recipeMapRefreshPending = true;
+            ((ContainerInterfaceTerminal) (Object) this).scheduleUpdate();
+        }
+    }
+
+    @Inject(method = "updateList", at = @At("RETURN"), require = 1)
+    private void ae2thing$syncRecipeMaps(CallbackInfoReturnable<PacketInterfaceTerminalUpdate> cir) {
+        ContainerWirelessDualInterfaceTerminal container = this.ae2thing$getWirelessContainer();
+        if (container == null || !this.ae2thing$recipeMapRefreshPending) return;
+        this.ae2thing$recipeMapRefreshPending = false;
+        Map<Long, Set<String>> snapshot = InterfaceRecipeMaps.snapshot(this.tracked);
+        if (snapshot.equals(this.ae2thing$lastRecipeMaps)) return;
+        this.ae2thing$lastRecipeMaps = snapshot;
+        AE2Thing.proxy.netHandler.sendTo(
+            new SPacketInterfaceRecipeMaps(container.windowId, snapshot),
+            (EntityPlayerMP) container.getPlayerInv().player);
+    }
+
+    @Unique
+    private ContainerWirelessDualInterfaceTerminal ae2thing$getWirelessContainer() {
+        EntityPlayer player = ((ContainerInterfaceTerminal) (Object) this).getPlayerInv().player;
+        if (player instanceof EntityPlayerMP
+            && player.openContainer instanceof ContainerWirelessDualInterfaceTerminal container
+            && container.delegateContainer == (Object) this) return container;
+        return null;
+    }
 
     @Redirect(
         method = "updateList",

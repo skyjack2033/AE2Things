@@ -72,9 +72,41 @@ public class RecipeSearchTermsTest {
             suggest("Large Chemical Reactor", item(new ItemStack(new NamedItem("  "), 0), 0)));
     }
 
+    @Test
+    public void independentlyControlsCircuitNumbersAndNonConsumedItemNames() {
+        OrderStack<?>[] inputs = { item(new ItemStack(circuit, 0, 5), 0),
+            item(new ItemStack(new NamedItem("Mold (Ingot)"), 0, 32300), 1) };
+
+        assertEquals("Extruder 5 Ingot", suggest("Extruder", true, true, inputs));
+        assertEquals("Extruder 5", suggest("Extruder", true, false, inputs));
+        assertEquals("Extruder Ingot", suggest("Extruder", false, true, inputs));
+        assertEquals("Extruder", suggest("Extruder", false, false, inputs));
+    }
+
+    @Test
+    public void enabledOptionsStillExcludeConsumedCircuitAndItemInputs() {
+        assertEquals(
+            "Assembler",
+            suggest(
+                "Assembler",
+                true,
+                true,
+                item(new ItemStack(circuit, 1, 5), 0),
+                item(new ItemStack(new NamedItem("Lens"), 1, 50), 1)));
+    }
+
     private String suggest(String name, OrderStack<?>... inputs) {
         List<OrderStack<?>> list = Arrays.asList(inputs);
         return RecipeSearchTerms.appendNonConsumedItems(name, list, stack -> stack.getItem() == circuit);
+    }
+
+    private String suggest(String name, boolean appendCircuits, boolean appendOtherItems, OrderStack<?>... inputs) {
+        return RecipeSearchTerms.appendNonConsumedItems(
+            name,
+            Arrays.asList(inputs),
+            stack -> stack.getItem() == circuit,
+            appendCircuits,
+            appendOtherItems);
     }
 
     private static OrderStack<?> item(ItemStack stack, int index) {

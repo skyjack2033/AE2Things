@@ -499,7 +499,11 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     @Override
     public void encode() {
-        encodeForUpload();
+        if (encodeForUpload()) refillBlankPatterns();
+    }
+
+    public void refillBlankPatterns() {
+        if (this.hasRefillerUpgrade()) refillBlankPatterns(this.patternSlotIN);
     }
 
     /** Returns success for this encoding attempt, independently of any output left from an earlier recipe. */
@@ -576,7 +580,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     @Override
     public void encodeAndMoveToInventory() {
-        this.encode();
+        this.encodeForUpload();
         ItemStack output = this.patternSlotOUT.getStack();
         if (output != null) {
             if (!this.container.getPlayerInv()
@@ -590,7 +594,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     @Override
     public void encodeAllItemAndMoveToInventory() {
-        this.encode();
+        this.encodeForUpload();
         ItemStack output = this.patternSlotOUT.getStack();
         if (output != null) {
             if (this.patternSlotIN.getStack() != null) output.stackSize += this.patternSlotIN.getStack().stackSize;
@@ -615,6 +619,9 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
     }
 
     public void onSlotChange(Slot s) {
+        if (s == this.patternRefiller && Platform.isServer()) {
+            this.refillBlankPatterns();
+        }
         if (s == this.patternSlotOUT && Platform.isServer()) {
             this.container.setInverted(this.it.isInverted());
             for (final Object crafter : this.container.getCrafters()) {

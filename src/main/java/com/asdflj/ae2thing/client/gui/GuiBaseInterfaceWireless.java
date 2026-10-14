@@ -24,6 +24,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -35,8 +36,10 @@ import org.lwjgl.opengl.GL12;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
+import com.asdflj.ae2thing.client.gui.widget.InterfaceSearchSettings;
 import com.asdflj.ae2thing.client.gui.widget.THGuiTextField;
 import com.asdflj.ae2thing.client.render.BlockPosHighlighter;
+import com.asdflj.ae2thing.common.Config;
 import com.asdflj.ae2thing.common.item.ItemPatternModifier;
 import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.network.CPacketRenamer;
@@ -44,7 +47,7 @@ import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.proxy.ClientProxy;
 import com.asdflj.ae2thing.util.GTUtil;
 import com.asdflj.ae2thing.util.InterfaceTerminalNames;
-import com.asdflj.ae2thing.util.InterfaceTerminalSearch;
+import com.asdflj.ae2thing.util.InterfaceRecipeMapSearch;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.NeCharUtil;
 import com.asdflj.ae2thing.util.PatternStackCodec;
@@ -108,6 +111,15 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
     private final GuiImgButton guiButtonBrokenRecipes;
     private final GuiImgButton terminalStyleBox;
     private final GuiImgButton searchStringSave;
+    private final GuiFCImgButton searchSettingsButton;
+    private final InterfaceRecipeMapSearch recipeMapSearch = new InterfaceRecipeMapSearch();
+    private final Map<Long, Set<String>> interfaceRecipeMaps = new HashMap<>();
+    private InterfaceSearchSettings searchSettings;
+    private String recipeSearchName = "";
+    private String recipeSearchMapId = "";
+    private String recipeCircuitTerms = "";
+    private String recipeItemTerms = "";
+    private String generatedRecipeQuery = "";
     private boolean onlyMolecularAssemblers = false;
     private boolean onlyBrokenRecipes = false;
     private boolean online;
@@ -174,6 +186,13 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         guiButtonBrokenRecipes = new GuiImgButton(0, 0, Settings.ACTIONS, null);
 
         terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, null);
+        searchSettingsButton = new GuiFCImgButton(0, 0, "SWITCH", "ENABLE") {
+
+            @Override
+            public String getMessage() {
+                return StatCollector.translateToLocal("ae2thing.gui.search_settings");
+            }
+        };
 
         this.extraOptionsText = new ArrayList<>(2);
         extraOptionsText.add(ButtonToolTips.HighlightInterface.getLocal());
@@ -241,7 +260,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         guiButtonAssemblersOnly.xPosition = guiLeft - 18;
         guiButtonAssemblersOnly.yPosition = guiButtonHideFull.yPosition + 18;
 
-        offsetY = guiButtonAssemblersOnly.yPosition + 18;
+        searchSettingsButton.xPosition = guiLeft - 18;
+        searchSettingsButton.yPosition = guiButtonAssemblersOnly.yPosition + 18;
+        offsetY = searchSettingsButton.yPosition + 18;
+        searchSettings = null;
 
         if (AEConfig.instance.preserveSearchBar || isSubGui()) {
             setSearchString();
@@ -255,6 +277,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         buttonList.add(guiButtonBrokenRecipes);
         buttonList.add(searchStringSave);
         buttonList.add(terminalStyleBox);
+        buttonList.add(searchSettingsButton);
+        refreshRecipeSearch(false);
     }
 
     protected void repositionSlots() {
@@ -300,6 +324,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
         super.drawScreen(mouseX, mouseY, btn);
 
+        if (searchSettings != null) {
+            searchSettings.draw(width, height, mouseX, mouseY);
+            return;
+        }
         handleTooltip(mouseX, mouseY, searchFieldInputs);
         handleTooltip(mouseX, mouseY, searchFieldOutputs);
         handleTooltip(mouseX, mouseY, searchFieldNames.getTooltipProvider());
@@ -307,6 +335,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) {
+        if (searchSettings != null) {
+            searchSettings.mouseClicked(xCoord, yCoord, btn);
+            return;
+        }
         searchFieldInputs.mouseClicked(xCoord, yCoord, btn);
         searchFieldOutputs.mouseClicked(xCoord, yCoord, btn);
         searchFieldNames.mouseClicked(xCoord, yCoord, btn);
@@ -325,9 +357,67 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         searchFieldNames.setText(text);
     }
 
+    public boolean isSearchSettingsOpen() {
+        return searchSettings != null;
+    }
+
+    public void setRecipeSearch(String recipeName, String recipeMapId, String circuitTerms, String itemTerms) {
+        this.recipeSearchName = recipeName;
+        this.recipeSearchMapId = recipeMapId;
+        this.recipeCircuitTerms = circuitTerms;
+        this.recipeItemTerms = itemTerms;
+        refreshRecipeSearch(true);
+    }
+
+    private void refreshRecipeSearch(boolean transferredRecipe) {
+        if (recipeSearchName.isEmpty()) {
+            masterList.markDirty();
+            return;
+        }
+        StringBuilder terms = new StringBuilder();
+        if (Config.interfaceTerminalAppendCircuitNumbers) terms.append(recipeCircuitTerms);
+        if (Config.interfaceTerminalAppendNonConsumedItems && !recipeItemTerms.isEmpty()) {
+            if (terms.length() > 0) terms.append(' ');
+            terms.append(recipeItemTerms);
+        }
+        String query = recipeSearchName + (terms.length() == 0 ? "" : " " + terms);
+        boolean updateText = transferredRecipe ? Config.interfaceTerminalAutoFillSearchNames
+            : searchFieldNames.getText()
+                .equals(generatedRecipeQuery);
+        generatedRecipeQuery = query;
+        recipeMapSearch.setRecipe(recipeSearchMapId, query, terms.toString());
+        searchFieldNames.setSuggestion(query);
+        if (updateText) searchFieldNames.setText(query);
+        masterList.markDirty();
+        if (updateText) {
+            setHighlightSlot();
+        } else if (!isCurrentHighlightEntry(ClientProxy.getInterfaceHighlightEntry())) {
+            ClientProxy.setInterfaceHighlightEntry(null);
+        }
+    }
+
+    public void updateRecipeMaps(int windowId, Map<Long, Set<String>> recipeMaps) {
+        if (inventorySlots.windowId != windowId) return;
+        interfaceRecipeMaps.clear();
+        interfaceRecipeMaps.putAll(recipeMaps);
+        masterList.markDirty();
+        if (!isCurrentHighlightEntry(ClientProxy.getInterfaceHighlightEntry())) {
+            ClientProxy.setInterfaceHighlightEntry(null);
+        }
+    }
+
     @Override
     protected void actionPerformed(final GuiButton btn) {
-        if (btn == guiButtonAssemblersOnly) {
+        if (btn == searchSettingsButton) {
+            searchFieldNames.setFocused(false);
+            searchFieldInputs.setFocused(false);
+            searchFieldOutputs.setFocused(false);
+            searchSettings = new InterfaceSearchSettings(
+                width,
+                height,
+                () -> refreshRecipeSearch(false),
+                () -> searchSettings = null);
+        } else if (btn == guiButtonAssemblersOnly) {
             onlyMolecularAssemblers = !onlyMolecularAssemblers;
             masterList.markDirty();
         } else if (btn == guiButtonHideFull) {
@@ -822,6 +912,12 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     protected void keyTyped(final char character, final int key) {
+        if (searchSettings != null) {
+            if (key == Keyboard.KEY_ESCAPE || key == mc.gameSettings.keyBindInventory.getKeyCode()) {
+                searchSettings = null;
+            }
+            return;
+        }
         if (key == Keyboard.KEY_TAB) {
             this.searchFieldNames.setSuggestionToText();
         } else if (!checkHotbarKeys(key)) {
@@ -846,6 +942,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     protected boolean mouseWheelEvent(int mouseX, int mouseY, int wheel) {
+        if (searchSettings != null) return true;
         boolean isMouseInViewport = isMouseInViewport(mouseX, mouseY);
         GuiScrollbar scrollbar = getScrollBar();
         if (isMouseInViewport && isCtrlKeyDown()) {
@@ -1162,10 +1259,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         private void update() {
             height = 0;
             visibleSections.clear();
-            String query = GuiBaseInterfaceWireless.this.searchFieldNames.getText();
             for (InterfaceWirelessSection section : sections.values()) {
-                if (!InterfaceTerminalSearch.matches(query, section.name, NeCharUtil.INSTANCE::contains)) continue;
-
                 section.isDirty = true;
                 if (section.getVisible()
                     .hasNext()) {
@@ -1341,6 +1435,13 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
             for (InterfaceWirelessEntry entry : entries) {
                 if (!entry.online || entry.p2pOutput || !entry.terminalVisible) continue;
+                if (!recipeMapSearch.matches(
+                    searchFieldNames.getText(),
+                    entry.dispName,
+                    interfaceRecipeMaps.get(entry.id),
+                    Config.interfaceTerminalMatchRecipeMaps,
+                    StatCollector::translateToLocal,
+                    NeCharUtil.INSTANCE::contains)) continue;
                 var moleAss = AEApi.instance()
                     .definitions()
                     .blocks()
