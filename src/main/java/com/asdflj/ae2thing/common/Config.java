@@ -3,6 +3,7 @@ package com.asdflj.ae2thing.common;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
@@ -13,6 +14,7 @@ import cpw.mods.fml.relauncher.FMLInjectionData;
 
 public class Config {
 
+    public static final String CATEGORY_GENERAL = AE2Thing.NAME.toLowerCase(Locale.ENGLISH);
     public static final String CATEGORY_INTERFACE_TERMINAL_SEARCH = "interface_terminal_search";
     private static final String AUTO_FILL_SEARCH_NAMES = "auto_fill";
     private static final String APPEND_CIRCUIT_NUMBERS = "append_circuit_numbers";
@@ -72,25 +74,25 @@ public class Config {
             .getBoolean("Tic", AE2Thing.NAME, false, "Let Backpack Terminal can forge tic tool");
         craftingHistorySize = Config
             .getInt("crafting history size", AE2Thing.NAME, 200, 100, 300, "crafting history size");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .get("Enable link cell")
             .setLanguageKey("ae2thing.config.general.cell_link");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .get("Backpack terminal magnet range")
             .setLanguageKey("ae2thing.config.general.magnet_range");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .get("Terminal updateView thread")
             .setLanguageKey("ae2thing.config.general.update_view_thread");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .get("Wireless connector terminal infinity connection range")
             .setLanguageKey("ae2thing.config.general.infinity_connection_range");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .get("Ex IO Port Transfer Rate")
             .setLanguageKey("ae2thing.config.general.ex_io_port_transfer_rate");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .get("Tic")
             .setLanguageKey("ae2thing.config.general.tic_support");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .get("crafting history size")
             .setLanguageKey("ae2thing.config.general.crafting_history_size");
         if (Config.hasChanged()) Config.save();
@@ -98,7 +100,7 @@ public class Config {
 
     private static void loadCategory() {
         Config.addCustomCategoryComment(AE2Thing.NAME, "Settings for AE2Thing.");
-        Config.getCategory(AE2Thing.NAME)
+        Config.getCategory(CATEGORY_GENERAL)
             .setLanguageKey("ae2thing.config.general")
             .setRequiresMcRestart(true);
         Config.addCustomCategoryComment(

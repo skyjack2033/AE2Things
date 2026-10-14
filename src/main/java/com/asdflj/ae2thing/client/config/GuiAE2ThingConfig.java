@@ -39,7 +39,7 @@ public class GuiAE2ThingConfig extends GuiConfig {
         elements.add(
             new ConfigElement<>(
                 Config.getConfiguration()
-                    .getCategory(AE2Thing.NAME)));
+                    .getCategory(Config.CATEGORY_GENERAL)));
         return elements;
     }
 
