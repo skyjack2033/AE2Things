@@ -43,10 +43,10 @@ import com.asdflj.ae2thing.util.PatternUpload;
 import com.glodblock.github.common.item.ItemFluidPacket;
 import com.glodblock.github.util.Util;
 
+import appeng.api.AEApi;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
-import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;

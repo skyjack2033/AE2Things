@@ -30,7 +30,13 @@ public class InterfaceRecipeMapsGateTest {
 
     private static boolean supports(String watchers, String owner) throws IOException {
         ClassWriter writer = new ClassWriter(0);
-        writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "fixture/Hatch", null, "java/lang/Object", null);
+        writer.visit(
+            Opcodes.V1_8,
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+            "fixture/Hatch",
+            null,
+            "java/lang/Object",
+            null);
         writer.visitField(Opcodes.ACC_PROTECTED | Opcodes.ACC_FINAL, "watchers", watchers, null, null)
             .visitEnd();
         if (owner != null) {

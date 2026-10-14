@@ -34,9 +34,8 @@ public class InterfaceRecipeMapsBindingTest {
 
     private static Set<String> members(String type) throws IOException {
         Set<String> members = new HashSet<>();
-        try (InputStream stream = InterfaceRecipeMaps.openBaseClassResource(
-            InterfaceRecipeMapsBindingTest.class.getClassLoader(),
-            type + ".class")) {
+        try (InputStream stream = InterfaceRecipeMaps
+            .openBaseClassResource(InterfaceRecipeMapsBindingTest.class.getClassLoader(), type + ".class")) {
             if (stream == null) throw new IOException("Missing pinned GT class: " + type);
             new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM5) {
 

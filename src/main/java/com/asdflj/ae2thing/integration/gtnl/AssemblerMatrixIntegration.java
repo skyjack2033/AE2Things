@@ -53,7 +53,8 @@ public final class AssemblerMatrixIntegration {
             || pattern.stackSize != 1
             || !(pattern.getItem() instanceof ItemEncodedPattern item)
             || pattern.hasTagCompound() && pattern.getTagCompound()
-                .hasKey("tc_crafting")) return Result.REJECTED;
+                .hasKey("tc_crafting"))
+            return Result.REJECTED;
 
         try {
             ICraftingPatternDetails details = item.getPatternForItem(pattern.copy(), world);
@@ -69,7 +70,7 @@ public final class AssemblerMatrixIntegration {
                 if (!API.matrixType.isInstance(matrix)) continue;
                 matrices.add(matrix);
                 Object possibleOutputs = API.getPossibleOutputs.invoke(matrix);
-                if (!(possibleOutputs instanceof Collection<?> available)) return Result.REJECTED;
+                if (!(possibleOutputs instanceof Collection<?>available)) return Result.REJECTED;
                 if (available.contains(outputs[0])) return Result.DUPLICATE;
             }
 

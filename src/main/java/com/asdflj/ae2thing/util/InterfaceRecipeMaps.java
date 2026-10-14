@@ -76,7 +76,9 @@ public final class InterfaceRecipeMaps {
         URLConnection connection = resource.openConnection();
         if (connection instanceof JarURLConnection jar) {
             // Modern development JVMs select multi-release entries; inspect the Java 8 base class with legacy ASM.
-            try (ZipFile archive = new ZipFile(jar.getJarFile().getName())) {
+            try (ZipFile archive = new ZipFile(
+                jar.getJarFile()
+                    .getName())) {
                 ZipEntry entry = archive.getEntry(name);
                 if (entry == null) return null;
                 try (InputStream stream = archive.getInputStream(entry)) {
@@ -94,8 +96,8 @@ public final class InterfaceRecipeMaps {
             @Override
             public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
                 if ("watchers".equals(name) && "Ljava/util/List;".equals(descriptor)) fields[0] = true;
-                if ("ae2CraftingIconOwner".equals(name)
-                    && "Lnet/minecraft/util/ChunkCoordinates;".equals(descriptor)) fields[1] = true;
+                if ("ae2CraftingIconOwner".equals(name) && "Lnet/minecraft/util/ChunkCoordinates;".equals(descriptor))
+                    fields[1] = true;
                 return null;
             }
         }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
@@ -169,7 +171,8 @@ public final class InterfaceRecipeMaps {
         private static void collect(Object target, Set<String> maps, Set<IMetaTileEntity> visited) {
             IMetaTileEntity machine = target instanceof IGregTechTileEntity tile ? tile.getMetaTileEntity()
                 : target instanceof IMetaTileEntity meta ? meta : null;
-            if (machine == null || !(machine instanceof MetaTileEntity meta) || !isLoaded(meta)
+            if (machine == null || !(machine instanceof MetaTileEntity meta)
+                || !isLoaded(meta)
                 || !visited.add(machine)) return;
 
             if (machine instanceof MTEHatch hatch) {
@@ -210,7 +213,8 @@ public final class InterfaceRecipeMaps {
 
         private static boolean reachesMaster(IMetaTileEntity input, IMetaTileEntity target) {
             Set<IMetaTileEntity> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-            for (IMetaTileEntity current = input; current != null && visited.add(current); current = getMaster(current)) {
+            for (IMetaTileEntity current = input; current != null
+                && visited.add(current); current = getMaster(current)) {
                 if (current == target) return true;
                 if (!(current instanceof MetaTileEntity meta) || !isLoaded(meta)) return false;
             }

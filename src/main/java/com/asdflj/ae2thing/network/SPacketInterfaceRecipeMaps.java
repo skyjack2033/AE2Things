@@ -67,7 +67,9 @@ public class SPacketInterfaceRecipeMaps implements IMessage {
         buf.writeInt(this.recipeMaps.size());
         for (Map.Entry<Long, Set<String>> entry : this.recipeMaps.entrySet()) {
             buf.writeLong(entry.getKey());
-            buf.writeInt(entry.getValue().size());
+            buf.writeInt(
+                entry.getValue()
+                    .size());
             for (String map : entry.getValue()) {
                 buf.writeInt(map.length());
                 for (int i = 0; i < map.length(); i++) {

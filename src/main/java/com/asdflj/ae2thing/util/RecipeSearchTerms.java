@@ -34,8 +34,7 @@ final class RecipeSearchTerms {
                 if (!name.isEmpty()) terms.add(name);
             }
         }
-        return terms.isEmpty() ? recipeName
-            : (recipeName.isEmpty() ? "" : recipeName + " ") + String.join(" ", terms);
+        return terms.isEmpty() ? recipeName : (recipeName.isEmpty() ? "" : recipeName + " ") + String.join(" ", terms);
     }
 
     private static String shortItemName(String displayName) {
