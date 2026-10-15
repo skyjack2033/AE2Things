@@ -45,7 +45,7 @@ public abstract class MixinContainerInterfaceTerminal {
     @Unique
     private Map<Long, Set<String>> ae2thing$lastRecipeMaps;
 
-    @Inject(method = "detectAndSendChanges", at = @At("HEAD"), require = 1)
+    @Inject(method = "detectAndSendChanges", at = @At("HEAD"), remap = true, require = 1)
     private void ae2thing$scheduleRecipeMaps(CallbackInfo ci) {
         if (this.ae2thing$getWirelessContainer() == null) return;
         if (this.ae2thing$lastRecipeMaps == null || ++this.ae2thing$recipeMapRefreshTicks >= 10) {
