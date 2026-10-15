@@ -12,7 +12,6 @@ import com.asdflj.ae2thing.common.Config;
 import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.nei.recipes.FluidRecipe;
 import com.asdflj.ae2thing.nei.recipes.extractor.GTRecipeExtractor;
-import com.github.vfyjxf.nee.nei.NEETerminalBookmarkContainerHandler;
 
 import codechicken.lib.config.ConfigTagParent;
 import codechicken.nei.NEIClientConfig;
@@ -83,11 +82,9 @@ public class NEI_TH_Config implements IConfigureNEI {
         if (Mods.BLOCK_RENDERER.isModLoaded()) {
             API.addOption(new BaseToggleButton(ButtonConstants.BLOCK_RENDER));
         }
-        if (Mods.NOT_ENOUGH_ENERGISTICS.isModLoaded()) {
-            API.registerBookmarkContainerHandler(
-                GuiWirelessDualInterfaceTerminal.class,
-                NEETerminalBookmarkContainerHandler.instance);
-        }
+        API.registerBookmarkContainerHandler(
+            GuiWirelessDualInterfaceTerminal.class,
+            DualInterfaceBookmarkContainerHandler.INSTANCE);
     }
 
     public static boolean getConfigValue(String identifier) {

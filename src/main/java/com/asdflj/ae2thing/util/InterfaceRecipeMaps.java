@@ -45,7 +45,33 @@ import gregtech.common.tileentities.machines.MTEHatchCraftingInputSlave;
 /** Resolves recipe maps from live machine relationships, never from the hatch's display name or icon. */
 public final class InterfaceRecipeMaps {
 
+    private static final String GTNL_PROXY = "com.science.gtnl.common.machine.hatch.SuperCraftingInputProxy";
+    private static final ClassValue<List<Method>> GTNL_PROXY_MASTERS = new ClassValue<>() {
+
+        @Override
+        protected List<Method> computeValue(Class<?> type) {
+            try {
+                for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+                    if (GTNL_PROXY.equals(current.getName())) {
+                        return List.of(current.getMethod("getMasterSuper"), current.getMethod("getCraftingMaster"));
+                    }
+                }
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
+            return Collections.emptyList();
+        }
+    };
+
     private InterfaceRecipeMaps() {}
+
+    static <T> T getGtnlProxyMaster(Object proxy, Class<T> masterType) {
+        for (Method method : GTNL_PROXY_MASTERS.get(proxy.getClass())) {
+            try {
+                Object master = method.invoke(proxy);
+                if (masterType.isInstance(master)) return masterType.cast(master);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
+        }
+        return null;
+    }
 
     public static boolean isSupported() {
         return Mods.GREGTECH.isModLoaded() && GtSupport.SUPPORTED;
@@ -176,7 +202,7 @@ public final class InterfaceRecipeMaps {
                 || !visited.add(machine)) return;
 
             if (machine instanceof MTEHatch hatch) {
-                collectHatch(hatch, maps);
+                collectHatch(hatch, maps, visited);
                 if (hatch instanceof MTEHatchCraftingInputME input) {
                     for (MTEHatchCraftingInputSlave slave : input.getProxyHatches()) {
                         collect(slave, maps, visited);
@@ -186,18 +212,23 @@ public final class InterfaceRecipeMaps {
                 addMap(machine, maps);
             }
 
-            // PH's pattern-mapping provider has its own patterns but crafts through its current master.
+            // Pattern providers and proxies craft through their current master.
             IMetaTileEntity master = getMaster(machine);
             if (master != null) collect(master, maps, visited);
         }
 
-        private static void collectHatch(MTEHatch hatch, Set<String> maps) {
+        private static void collectHatch(MTEHatch hatch, Set<String> maps, Set<IMetaTileEntity> visited) {
             if (!(hatch instanceof HatchControllers source)) return;
             for (Object owner : source.ae2thing$getRecipeMapControllers()) {
-                if (!(owner instanceof MTEMultiBlockBase controller) || !isLoaded(controller)
-                    || !controller.mMachine
-                    || !belongsToController(controller, hatch)) continue;
-                addMap(controller, maps);
+                if (owner instanceof MTEMultiBlockBase controller) {
+                    if (isLoaded(controller) && controller.mMachine && belongsToController(controller, hatch)) {
+                        addMap(controller, maps);
+                    }
+                } else if (owner instanceof MTEHatch proxy && isLoaded(proxy)
+                    && getGtnlProxyMaster(proxy, IMetaTileEntity.class) == hatch) {
+                        // GTNL registers its proxy on the master; the actual multiblock watches the proxy.
+                        collect(proxy, maps, visited);
+                    }
             }
         }
 
@@ -223,6 +254,8 @@ public final class InterfaceRecipeMaps {
 
         private static IMetaTileEntity getMaster(IMetaTileEntity machine) {
             if (machine instanceof MTEHatchCraftingInputSlave slave) return slave.getMaster();
+            IMetaTileEntity gtnlMaster = getGtnlProxyMaster(machine, IMetaTileEntity.class);
+            if (gtnlMaster != null) return gtnlMaster;
             Method method = PROGRAMMABLE_MASTER.get(machine.getClass())
                 .orElse(null);
             if (method == null) return null;

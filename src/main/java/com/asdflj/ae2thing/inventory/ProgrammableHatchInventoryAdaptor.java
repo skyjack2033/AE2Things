@@ -2,6 +2,7 @@ package com.asdflj.ae2thing.inventory;
 
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.function.ToIntFunction;
 
 import javax.annotation.Nullable;
 
@@ -53,7 +54,7 @@ public final class ProgrammableHatchInventoryAdaptor extends InventoryAdaptor {
     }
 
     /**
-     * Returns a PH adaptor only for the p26 dual input hatches. Keeping this
+     * Returns a PH adaptor only for dual input hatches with the shared fluid bridge. Keeping this
      * check here prevents the fluid packet behaviour from changing ordinary
      * GT input buses or unrelated fluid handlers.
      */
@@ -65,13 +66,18 @@ public final class ProgrammableHatchInventoryAdaptor extends InventoryAdaptor {
 
         BaseMetaTileEntity base = (BaseMetaTileEntity) target;
         if (base.getMetaTileEntity() == null) return null;
-        String name = base.getMetaTileEntity()
-            .getClass()
-            .getName();
-        // Includes p26's BufferedDualInputHatch, DualInputHachOC and
-        // DualInputHatchSlave variants, which share the same fluid bridge.
-        if (!name.startsWith(DUAL_INPUT_HATCH)) return null;
+        if (!isSupportedHatch(
+            base.getMetaTileEntity()
+                .getClass()))
+            return null;
         return new ProgrammableHatchInventoryAdaptor(target, side);
+    }
+
+    static boolean isSupportedHatch(Class<?> type) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            if (DUAL_INPUT_HATCH.equals(current.getName())) return true;
+        }
+        return false;
     }
 
     @Override
@@ -142,15 +148,30 @@ public final class ProgrammableHatchInventoryAdaptor extends InventoryAdaptor {
         if (fs == null || fluid.getStackSize() <= 0) return original;
 
         long requested = fluid.getStackSize();
+        boolean wholePacket = original instanceof IAEItemStack item && item.getItem() instanceof ItemFluidPacket;
+        if (wholePacket && (original.getStackSize() != 1 || requested > Integer.MAX_VALUE)) return original;
         int amount = (int) Math.min(Integer.MAX_VALUE, requested);
         FluidStack operation = fs.copy();
         operation.amount = amount;
-        int accepted = this.fluidHandler.fill(this.side, operation, modulate);
+        int accepted = fillFluid(
+            amount,
+            wholePacket,
+            modulate,
+            doFill -> this.fluidHandler.fill(this.side, doFill ? operation : operation.copy(), doFill));
         if (accepted <= 0) return original;
 
         long remaining = requested - accepted;
         if (remaining <= 0) return null;
         return stackWithSize(original, fluid, remaining);
+    }
+
+    static int fillFluid(int amount, boolean wholePacket, boolean modulate, ToIntFunction<Boolean> fill) {
+        // AE2 tracks packet counts, not their NBT fluid amount, so a partial packet cannot be returned.
+        if (wholePacket) {
+            if (fill.applyAsInt(false) != amount) return 0;
+            if (!modulate) return amount;
+        }
+        return fill.applyAsInt(modulate);
     }
 
     private static IAEStack<?> stackWithSize(IAEStack<?> original, IAEFluidStack fluid, long amount) {
