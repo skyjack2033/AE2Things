@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 
 import net.minecraft.inventory.IInventory;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import appeng.api.networking.IGrid;
@@ -14,7 +15,9 @@ import appeng.api.networking.events.MENetworkCraftingPatternChange;
 import appeng.api.util.IInterfaceViewable;
 import appeng.core.AELog;
 import appeng.core.sync.packets.PacketInterfaceTerminalUpdate;
+import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
+import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.WrapperInventoryRange;
 
 public final class InterfacePatternInventory {
@@ -44,6 +47,18 @@ public final class InterfacePatternInventory {
             if (!type.getName()
                 .startsWith(PROGRAMMABLE_PATTERN_PREFIX)) return Optional.empty();
             return findMethod(type, "refresh");
+        }
+    };
+    private static final ClassValue<Optional<Field>> PENDING_PATTERN_SYNC = new ClassValue<>() {
+
+        @Override
+        protected Optional<Field> computeValue(Class<?> type) {
+            if (PROGRAMMABLE_REFRESH.get(type)
+                .isEmpty()
+                && PATTERN_ARRAY.get(type)
+                    .isEmpty())
+                return Optional.empty();
+            return findField(type, "needPatternSync", boolean.class);
         }
     };
 
@@ -90,32 +105,38 @@ public final class InterfacePatternInventory {
         IInventory inventory = host.getPatterns();
         int capacity = getPatternCapacity(host);
         if (capacity < 0) return inventory;
-        // GTNL exposes its entire hatch inventory, including circuit and manual input slots.
-        // The wrapper is already bounded to PatternSlot entries, so a host-level validation rule must not reject
-        // encoded patterns before the hatch receives them.
         return new WrapperInventoryRange(inventory, 0, Math.min(capacity, inventory.getSizeInventory()), true);
     }
 
-    /**
-     * Force the provider to rebuild its crafting registrations after a remote inventory mutation.
-     * <p>
-     * Native AE interfaces do this from their inventory callback. GTNL's large hatch intentionally batches the
-     * network event for up to ten ticks, which is long enough for a craft request made immediately after an upload
-     * to report a missing pattern. Publishing here keeps the terminal's write path synchronous without changing the
-     * provider's normal tick behavior.
-     */
+    public static Batch beginBatch(IInterfaceViewable host) {
+        if (!(host instanceof IInterfaceHost interfaceHost)) return null;
+        DualityInterface duality = interfaceHost.getInterfaceDuality();
+        IInventory patterns = host.getPatterns();
+        if (duality == null || patterns != duality.getPatterns()
+            || !(patterns instanceof AppEngInternalInventory inventory)) return null;
+        inventory.setTileEntity(null);
+        return new Batch(inventory, duality);
+    }
+
+    public static void endBatch(Batch batch, boolean changed) {
+        if (batch == null) return;
+        batch.inventory.setTileEntity(batch.duality);
+        if (changed) {
+            batch.inventory.markDirty();
+            batch.duality.updateCraftingList();
+        }
+    }
+
     public static void notifyPatternChange(IInterfaceViewable host) {
-        if (host instanceof IInterfaceHost interfaceHost) {
-            interfaceHost.getInterfaceDuality()
-                .updateCraftingList();
+        if (host instanceof IInterfaceHost) {
             return;
         }
 
-        // Programmable Hatches cache parsed pattern details by ItemStack identity. Their
-        // inventory callback only marks the cache dirty for a later tick, so force the
-        // same refresh entry point that the official hatch UI uses before publishing the
-        // fallback AE2 event.
-        if (refreshProgrammablePatternCache(host)) return;
+        if (refreshProgrammablePatternCache(host)) {
+            IGridNode node = host.getGridNode(ForgeDirection.UNKNOWN);
+            if (node != null && node.isActive()) clearPendingPatternSync(host);
+            return;
+        }
 
         if (!(host instanceof ICraftingProvider provider)) return;
         IGridNode node = host.getGridNode(ForgeDirection.UNKNOWN);
@@ -123,6 +144,7 @@ public final class InterfacePatternInventory {
         IGrid grid = node.getGrid();
         if (grid != null) {
             grid.postEvent(new MENetworkCraftingPatternChange(provider, node));
+            clearPendingPatternSync(host);
         }
     }
 
@@ -137,6 +159,32 @@ public final class InterfacePatternInventory {
             AELog.error(e);
             return false;
         }
+    }
+
+    private static void clearPendingPatternSync(IInterfaceViewable host) {
+        Field field = PENDING_PATTERN_SYNC.get(host.getClass())
+            .orElse(null);
+        if (field == null) return;
+        try {
+            field.setBoolean(host, false);
+        } catch (IllegalAccessException | RuntimeException e) {
+            AELog.error(e);
+        }
+    }
+
+    private static Optional<Field> findField(Class<?> type, String name, Class<?> fieldType) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                Field field = current.getDeclaredField(name);
+                if (field.getType() != fieldType) return Optional.empty();
+                field.setAccessible(true);
+                return Optional.of(field);
+            } catch (NoSuchFieldException ignored) {} catch (SecurityException e) {
+                AELog.error(e);
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
     }
 
     private static Optional<Method> findMethod(Class<?> type, String name, Class<?>... parameterTypes) {
@@ -155,7 +203,20 @@ public final class InterfacePatternInventory {
         return Optional.empty();
     }
 
+    public static final class Batch {
+
+        private final AppEngInternalInventory inventory;
+        private final DualityInterface duality;
+
+        private Batch(AppEngInternalInventory inventory, DualityInterface duality) {
+            this.inventory = inventory;
+            this.duality = duality;
+        }
+    }
+
     public interface Tracker {
+
+        NBTTagCompound ae2thing$updatePattern(int slot);
 
         PacketInterfaceTerminalUpdate ae2thing$syncPatternChanges(PacketInterfaceTerminalUpdate update);
     }

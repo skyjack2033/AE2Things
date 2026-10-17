@@ -80,6 +80,18 @@ public abstract class MixinInterfaceTerminalInvTracker implements InterfacePatte
     }
 
     @Override
+    public NBTTagCompound ae2thing$updatePattern(int slot) {
+        ItemStack current = this.patterns.getStackInSlot(slot);
+        NBTTagCompound item = new NBTTagCompound();
+        if (current != null) current.writeToNBT(item);
+        this.invNbt.func_150304_a(slot, item);
+        if (this.ae2thing$lastPatterns != null) {
+            this.ae2thing$lastPatterns[slot] = ItemStack.copyItemStack(current);
+        }
+        return item;
+    }
+
+    @Override
     public PacketInterfaceTerminalUpdate ae2thing$syncPatternChanges(PacketInterfaceTerminalUpdate update) {
         if (this.ae2thing$lastPatterns == null) return update;
         List<Integer> changedSlots = null;
@@ -91,12 +103,8 @@ public abstract class MixinInterfaceTerminalInvTracker implements InterfacePatte
                 changedSlots = new ArrayList<>();
                 items = new NBTTagList();
             }
-            NBTTagCompound item = new NBTTagCompound();
-            if (current != null) current.writeToNBT(item);
             changedSlots.add(slot);
-            items.appendTag(item);
-            this.invNbt.func_150304_a(slot, item);
-            this.ae2thing$lastPatterns[slot] = ItemStack.copyItemStack(current);
+            items.appendTag(this.ae2thing$updatePattern(slot));
         }
         if (changedSlots != null) {
             if (update == null) update = new PacketInterfaceTerminalUpdate();

@@ -1,5 +1,6 @@
 package com.asdflj.ae2thing.client.gui.container;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -206,7 +207,12 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             // Programmable Hatch covers use the sign bit in otherwise valid native tracker IDs.
             if (id != -1 && id != -2) {
                 if (!canEditInterfaces()) return;
-                delegateContainer.doAction(player, action, slotId, id);
+                if (action == InventoryAction.MOVE_REGION) CraftingGridCache.pauseRebuilds();
+                try {
+                    delegateContainer.doAction(player, action, slotId, id);
+                } finally {
+                    if (action == InventoryAction.MOVE_REGION) CraftingGridCache.unpauseRebuilds();
+                }
             } else if (id == -1) {
                 Slot s = this.inventorySlots.get(slotId);
                 if (s == null) return;
@@ -303,9 +309,12 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
 
     private ImmutablePair<World, IInterfaceViewable> getWorldAndHost(NBTTagCompound tag) {
         if (!canEditInterfaces()) return null;
-        this.delegateContainer.scheduleUpdate();
-        this.delegateContainer.detectAndSendChanges();
         IInterfaceViewable host = InterfaceTerminalTarget.resolve(Ae2Reflect.getTracked(this.delegateContainer), tag);
+        if (host == null || !isVisibleInterface(host)) {
+            this.delegateContainer.scheduleUpdate();
+            this.delegateContainer.detectAndSendChanges();
+            host = InterfaceTerminalTarget.resolve(Ae2Reflect.getTracked(this.delegateContainer), tag);
+        }
         if (host == null || !isVisibleInterface(host)) return null;
         ForgeDirection side = Util.DimensionalCoordSide.readFromNBT(tag)
             .getSide();
@@ -337,6 +346,8 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         IInventory patterns = InterfacePatternInventory.getPatterns(host);
         boolean fast = (val & 1) != 0;
         boolean backwards = (val & 2) != 0;
+        List<Integer> changedSlots = new ArrayList<>();
+        InterfacePatternInventory.Batch batch = InterfacePatternInventory.beginBatch(host);
         CraftingGridCache.pauseRebuilds();
         try {
             for (int i = 0; i < patterns.getSizeInventory(); i++) {
@@ -351,33 +362,64 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
                             PatternMultiplierHelper
                                 .applyModification(copy, (fast ? Math.min(3, max) : 1) * (backwards ? -1 : 1));
                             patterns.setInventorySlotContents(i, copy);
+                            changedSlots.add(i);
                         }
                     }
                 }
             }
-        } catch (Throwable ignored) {}
-        CraftingGridCache.unpauseRebuilds();
+        } catch (Throwable ignored) {} finally {
+            try {
+                InterfacePatternInventory.endBatch(batch, !changedSlots.isEmpty());
+            } finally {
+                CraftingGridCache.unpauseRebuilds();
+            }
+        }
+        if (changedSlots.isEmpty()) return;
         InterfacePatternInventory.notifyPatternChange(host);
-        this.sendToClient(host);
+        this.sendToClient(
+            host,
+            changedSlots.stream()
+                .mapToInt(Integer::intValue)
+                .toArray());
     }
 
-    private void sendToClient(IInterfaceViewable host) {
+    private void sendToClient(IInterfaceViewable host, int... changedSlots) {
         Long id = InterfaceTerminalTarget.getId(Ae2Reflect.getTracked(this.delegateContainer), host);
         if (id == null) return;
         try {
             IInventory patterns = InterfacePatternInventory.getPatterns(host);
+            Object tracker = Ae2Reflect.getTracked(this.delegateContainer)
+                .get(host);
             int slots = Math.min(InterfacePatternInventory.getSlotCount(host), patterns.getSizeInventory());
             NBTTagList items = new NBTTagList();
-            for (int i = 0; i < slots; i++) {
-                ItemStack stack = patterns.getStackInSlot(i);
-                NBTTagCompound item = new NBTTagCompound();
-                if (stack != null) stack.writeToNBT(item);
-                items.appendTag(item);
+            if (changedSlots.length == 0) {
+                for (int i = 0; i < slots; i++) {
+                    ItemStack stack = patterns.getStackInSlot(i);
+                    NBTTagCompound item = new NBTTagCompound();
+                    if (stack != null) stack.writeToNBT(item);
+                    items.appendTag(item);
+                }
+            } else {
+                for (int changedSlot : changedSlots) {
+                    if (changedSlot < 0 || changedSlot >= slots) return;
+                    if (tracker instanceof InterfacePatternInventory.Tracker snapshot) {
+                        items.appendTag(snapshot.ae2thing$updatePattern(changedSlot));
+                        continue;
+                    }
+                    ItemStack stack = patterns.getStackInSlot(changedSlot);
+                    NBTTagCompound item = new NBTTagCompound();
+                    if (stack != null) stack.writeToNBT(item);
+                    items.appendTag(item);
+                }
             }
             PacketInterfaceTerminalUpdate update = new PacketInterfaceTerminalUpdate();
-            update.addOverwriteEntry(id)
-                .setSize(InterfacePatternInventory.getRows(host), host.rowSize(), slots)
-                .setItems(new int[0], items);
+            PacketInterfaceTerminalUpdate.PacketOverwrite overwrite = update.addOverwriteEntry(id);
+            if (changedSlots.length == 0) {
+                overwrite.setSize(InterfacePatternInventory.getRows(host), host.rowSize(), slots);
+                overwrite.setItems(new int[0], items);
+            } else {
+                overwrite.setItems(changedSlots, items);
+            }
             update.encode();
             NetworkHandler.instance.sendTo(update, (EntityPlayerMP) this.getPlayerInv().player);
         } catch (Exception e) {
@@ -468,47 +510,71 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             int slot = val >> 2;
             boolean shift = (val & 1) != 0;
             boolean backwards = (val & 2) != 0;
-            if (!backwards) {
-                // inject all item to pattern modifier
-                injectPatternToPatternModifier(result.right, slot, shift);
-            } else {
-                extractPatternToInterface(result.right);
+            List<Integer> changedSlots = new ArrayList<>();
+            InterfacePatternInventory.Batch batch = InterfacePatternInventory.beginBatch(result.right);
+            if (shift || backwards) CraftingGridCache.pauseRebuilds();
+            try {
+                if (!backwards) {
+                    injectPatternToPatternModifier(result.right, slot, shift, changedSlots);
+                } else {
+                    extractPatternToInterface(result.right, changedSlots);
+                }
+            } finally {
+                try {
+                    InterfacePatternInventory.endBatch(batch, !changedSlots.isEmpty());
+                } finally {
+                    if (shift || backwards) CraftingGridCache.unpauseRebuilds();
+                }
             }
+            if (changedSlots.isEmpty()) return;
             InterfacePatternInventory.notifyPatternChange(result.right);
-            this.sendToClient(result.right);
+            this.sendToClient(
+                result.right,
+                changedSlots.stream()
+                    .mapToInt(Integer::intValue)
+                    .toArray());
         }
     }
 
-    private void extractPatternToInterface(IInterfaceViewable host) {
+    private boolean extractPatternToInterface(IInterfaceViewable host, List<Integer> changedSlots) {
         PatternModifierInventory patternModifierInventory = new PatternModifierInventory(
             this.player.inventory.getItemStack(),
             -1,
             player);
-        patternModifierInventory.extractToHost(host);
+        return patternModifierInventory.extractToHost(host, changedSlots);
     }
 
-    private void injectPatternToPatternModifier(IInterfaceViewable host, int slot, boolean shift) {
+    private boolean injectPatternToPatternModifier(IInterfaceViewable host, int slot, boolean shift,
+        List<Integer> changedSlots) {
         IInventory patterns = InterfacePatternInventory.getPatterns(host);
-        if (!shift && ((slot < 0) || (slot >= patterns.getSizeInventory()))) return;
+        if (!shift && ((slot < 0) || (slot >= patterns.getSizeInventory()))) return false;
         PatternModifierInventory patternModifierInventory = new PatternModifierInventory(
             this.player.inventory.getItemStack(),
             -1,
             player);
         if (shift) {
+            boolean changed = false;
             for (int i = 0; i < patterns.getSizeInventory(); i++) {
                 ItemStack pattern = patterns.getStackInSlot(i);
-                if (patternModifierInventory.injectItems(pattern)) {
-                    patterns.setInventorySlotContents(i, null);
-                } else {
+                if (pattern == null) continue;
+                if (!patternModifierInventory.injectItemsWithoutSave(pattern)) {
                     break;
                 }
+                patterns.setInventorySlotContents(i, null);
+                changedSlots.add(i);
+                changed = true;
             }
+            if (changed) patternModifierInventory.saveChanges();
+            return changed;
         } else {
-            if (patternModifierInventory.injectItems(patterns.getStackInSlot(slot))) {
+            ItemStack pattern = patterns.getStackInSlot(slot);
+            if (pattern != null && patternModifierInventory.injectItems(pattern)) {
                 patterns.setInventorySlotContents(slot, null);
+                changedSlots.add(slot);
+                return true;
             }
         }
-
+        return false;
     }
 
     public void PlacePattern(int slot, NBTTagCompound tag) {
@@ -587,6 +653,6 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             InterfacePatternInventory.notifyPatternChange(host);
         }
         // Also refresh after a rejected upload, e.g. when another player filled the selected slot.
-        this.sendToClient(host);
+        this.sendToClient(host, slot);
     }
 }

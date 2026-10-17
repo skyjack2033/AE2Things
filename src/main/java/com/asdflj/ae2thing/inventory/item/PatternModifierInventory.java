@@ -1,5 +1,7 @@
 package com.asdflj.ae2thing.inventory.item;
 
+import java.util.List;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -8,17 +10,14 @@ import com.asdflj.ae2thing.api.Constants;
 import com.asdflj.ae2thing.inventory.ItemBiggerAppEngInventory;
 import com.asdflj.ae2thing.util.InterfacePatternInventory;
 
-import appeng.api.AEApi;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
 import appeng.api.storage.IMEMonitor;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IInterfaceViewable;
 import appeng.container.interfaces.IInventorySlotAware;
-import appeng.util.IterationCounter;
 import appeng.util.Platform;
 
 public class PatternModifierInventory implements ITerminalHost, IInventorySlotAware, IGuiItemObject {
@@ -86,40 +85,60 @@ public class PatternModifierInventory implements ITerminalHost, IInventorySlotAw
     }
 
     public boolean injectItems(ItemStack itemStack) {
+        return injectItems(itemStack, false);
+    }
+
+    public boolean injectItemsWithoutSave(ItemStack itemStack) {
+        return injectItems(itemStack, true);
+    }
+
+    private boolean injectItems(ItemStack itemStack, boolean deferSave) {
+        if (itemStack == null) return false;
         for (int i = 0; i < this.pattern.getSizeInventory(); i++) {
             ItemStack stack = this.pattern.getStackInSlot(i);
             if (stack == null) {
-                this.pattern.setInventorySlotContents(i, itemStack);
+                if (deferSave) {
+                    this.pattern.setInventorySlotContentsNoMarkDirty(i, itemStack);
+                } else {
+                    this.pattern.setInventorySlotContents(i, itemStack);
+                }
                 return true;
             }
         }
         return false;
     }
 
-    @SuppressWarnings("unchecked")
-    public void extractToHost(IInterfaceViewable host) {
-        if (host == null) return;
-        IItemList<IAEItemStack> itemList = this.pattern.getMEInventory()
-            .getAvailableItems(
-                AEApi.instance()
-                    .storage()
-                    .createPrimitiveItemList(),
-                IterationCounter.fetchNewId());
-        if (itemList.isEmpty()) return;
+    public boolean extractToHost(IInterfaceViewable host) {
+        return extractToHost(host, null);
+    }
+
+    public boolean extractToHost(IInterfaceViewable host, List<Integer> changedSlots) {
+        if (host == null) return false;
         IInventory inv = InterfacePatternInventory.getPatterns(host);
         int slots = Math.min(InterfacePatternInventory.getSlotCount(host), inv.getSizeInventory());
+        int sourceSlot = 0;
+        boolean changed = false;
         for (int i = 0; i < slots; i++) {
             ItemStack stored = inv.getStackInSlot(i);
             if (stored != null) continue;
-            for (int j = 0; j < this.pattern.getSizeInventory(); j++) {
-                ItemStack stack = this.pattern.getStackInSlot(j);
-                if (stack != null) {
-                    inv.setInventorySlotContents(i, stack);
-                    this.pattern.setInventorySlotContents(j, null);
-                    break;
-                }
+            while (sourceSlot < this.pattern.getSizeInventory() && this.pattern.getStackInSlot(sourceSlot) == null) {
+                sourceSlot++;
             }
+            if (sourceSlot >= this.pattern.getSizeInventory()) break;
+            inv.setInventorySlotContents(i, this.pattern.getStackInSlot(sourceSlot));
+            this.pattern.setInventorySlotContentsNoMarkDirty(sourceSlot, null);
+            sourceSlot++;
+            changed = true;
+            if (changedSlots != null) changedSlots.add(i);
         }
+        if (changed) {
+            this.pattern.markDirty();
+        }
+        return changed;
+    }
+
+    public void saveChanges() {
+        this.pattern.markDirty();
     }
 
 }

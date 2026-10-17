@@ -24,6 +24,8 @@ import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.events.MENetworkBootingStatusChange;
+import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.parts.IInterfaceTerminal;
 import appeng.api.storage.ITerminalTypeFilterProvider;
 import appeng.api.storage.data.IAEStack;
@@ -53,6 +55,7 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     protected int activePage = 0;
     private Util.DimensionalCoordSide tile;
     private final TerminalTypeFilters typeFilters = new TerminalTypeFilters();
+    private boolean updateRequired;
 
     public WirelessDualInterfaceTerminalInventory(WirelessObject obj) {
         super(obj);
@@ -301,12 +304,17 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
 
     private void fixCraftingRecipes() {
         if (this.craftingMode) {
+            boolean changed = false;
             for (int x = 0; x < this.crafting.getSizeInventory(); x++) {
                 final ItemStack is = this.crafting.getStackInSlot(x);
                 if (is != null) {
-                    is.stackSize = 1;
+                    if (is.stackSize != 1) {
+                        is.stackSize = 1;
+                        changed = true;
+                    }
                 }
             }
+            if (changed) this.crafting.markDirty();
         }
     }
 
@@ -319,11 +327,6 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
         data.removeTag("priorization");
         data.setBoolean("inverted", this.inverted);
         data.setInteger("activePage", this.activePage);
-        this.craftingEx.markDirty();
-        this.outputEx.markDirty();
-        this.upgrades.markDirty();
-        this.pattern.markDirty();
-        this.crafting.markDirty();
         NBTTagCompound tileMsg = new NBTTagCompound();
         if (tile != null) {
             tile.writeToNBT(tileMsg);
@@ -345,7 +348,16 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
 
     @Override
     public boolean needsUpdate() {
-        return true;
+        boolean result = this.updateRequired;
+        this.updateRequired = false;
+        return result;
+    }
+
+    @MENetworkEventSubscribe
+    public void onNetworkBootingChanged(MENetworkBootingStatusChange event) {
+        if (!event.isBooting) {
+            this.updateRequired = true;
+        }
     }
 
     @Override

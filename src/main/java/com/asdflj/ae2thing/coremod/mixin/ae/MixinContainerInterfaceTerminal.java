@@ -5,12 +5,15 @@ import java.util.Set;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Coerce;
+import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -32,9 +35,6 @@ public abstract class MixinContainerInterfaceTerminal {
     @Shadow
     @Final
     private Map<IInterfaceViewable, ?> tracked;
-
-    @Unique
-    private int ae2thing$patternRefreshTicks;
 
     @Unique
     private int ae2thing$recipeMapRefreshTicks;
@@ -93,10 +93,32 @@ public abstract class MixinContainerInterfaceTerminal {
         return InterfacePatternInventory.getSlotCount(host);
     }
 
+    @Group(name = "ae2thing$syncPatternSlot", min = 1, max = 1)
+    @Redirect(
+        method = "syncIfaceSlot",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/container/implementations/ContainerInterfaceTerminal$InvTracker;updateNBT()V"),
+        require = 0)
+    private void ae2thing$syncPatternSlot(@Coerce Object tracker, @Coerce Object inv, long id, int slot,
+        ItemStack stack) {
+        ((InterfacePatternInventory.Tracker) tracker).ae2thing$updatePattern(slot);
+    }
+
+    @Group(name = "ae2thing$syncPatternSlot", min = 1, max = 1)
+    @Redirect(
+        method = "syncIfaceSlot",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/container/implementations/ContainerInterfaceTerminal$InvTracker;access$300(Lappeng/container/implementations/ContainerInterfaceTerminal$InvTracker;)V"),
+        require = 0)
+    private void ae2thing$syncPatternSlotAccessor(@Coerce Object tracker, @Coerce Object inv, long id, int slot,
+        ItemStack stack) {
+        ((InterfacePatternInventory.Tracker) tracker).ae2thing$updatePattern(slot);
+    }
+
     @Inject(method = "updateList", at = @At("RETURN"), cancellable = true, require = 1)
     private void ae2thing$refreshPatterns(CallbackInfoReturnable<PacketInterfaceTerminalUpdate> cir) {
-        if (++this.ae2thing$patternRefreshTicks < 10) return;
-        this.ae2thing$patternRefreshTicks = 0;
         // A fixed capacity no longer triggers AE2's inventory refresh when GTNL's dynamic rows change.
         PacketInterfaceTerminalUpdate update = cir.getReturnValue();
         for (Object tracker : this.tracked.values()) {
