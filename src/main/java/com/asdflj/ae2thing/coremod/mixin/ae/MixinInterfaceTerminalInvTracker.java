@@ -18,6 +18,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.asdflj.ae2thing.util.InterfacePatternInventory;
+import com.asdflj.ae2thing.util.InterfaceTerminalNameCache;
+import com.asdflj.ae2thing.util.InterfaceTerminalPatternCache;
 import com.google.common.primitives.Ints;
 
 import appeng.api.util.IInterfaceViewable;
@@ -37,11 +39,25 @@ public abstract class MixinInterfaceTerminalInvTracker implements InterfacePatte
     @Shadow
     private NBTTagList invNbt;
 
+    @Shadow
+    private int numSlots;
+
+    @Unique
+    private IInterfaceViewable ae2thing$host;
+
     @Unique
     private boolean ae2thing$trackPatternChanges;
 
     @Unique
     private ItemStack[] ae2thing$lastPatterns;
+
+    @Redirect(
+        method = "<init>",
+        at = @At(value = "INVOKE", target = "Lappeng/api/util/IInterfaceViewable;getRawName()Ljava/lang/String;"),
+        require = 1)
+    private String ae2thing$cachedName(IInterfaceViewable host) {
+        return InterfaceTerminalNameCache.getRawName(host);
+    }
 
     @Redirect(
         method = "<init>",
@@ -66,24 +82,27 @@ public abstract class MixinInterfaceTerminalInvTracker implements InterfacePatte
             target = "Lappeng/api/util/IInterfaceViewable;getPatterns()Lnet/minecraft/inventory/IInventory;"),
         require = 1)
     private IInventory ae2thing$patternInventory(IInterfaceViewable host) {
+        this.ae2thing$host = host;
         this.ae2thing$trackPatternChanges = InterfacePatternInventory.hasExtendedCapacity(host);
         return InterfacePatternInventory.getPatterns(host);
     }
 
-    @Inject(method = "updateNBT()V", at = @At("TAIL"), require = 1)
+    @Inject(method = "updateNBT()V", at = @At("HEAD"), cancellable = true, require = 1)
     private void ae2thing$capturePatterns(CallbackInfo ci) {
-        if (!this.ae2thing$trackPatternChanges) return;
-        this.ae2thing$lastPatterns = new ItemStack[this.patterns.getSizeInventory()];
-        for (int slot = 0; slot < this.ae2thing$lastPatterns.length; slot++) {
-            this.ae2thing$lastPatterns[slot] = ItemStack.copyItemStack(this.patterns.getStackInSlot(slot));
+        InterfaceTerminalPatternCache.Snapshot snapshot = InterfaceTerminalPatternCache
+            .capture(this.ae2thing$host, this.patterns, this.numSlots);
+        this.invNbt = snapshot.copyItemList();
+        if (this.ae2thing$trackPatternChanges) {
+            this.ae2thing$lastPatterns = snapshot.copyPatternReferences();
         }
+        ci.cancel();
     }
 
     @Override
     public NBTTagCompound ae2thing$updatePattern(int slot) {
         ItemStack current = this.patterns.getStackInSlot(slot);
-        NBTTagCompound item = new NBTTagCompound();
-        if (current != null) current.writeToNBT(item);
+        NBTTagCompound item = InterfaceTerminalPatternCache
+            .updateSlot(this.ae2thing$host, this.patterns, this.numSlots, slot);
         this.invNbt.func_150304_a(slot, item);
         if (this.ae2thing$lastPatterns != null) {
             this.ae2thing$lastPatterns[slot] = ItemStack.copyItemStack(current);

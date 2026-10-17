@@ -24,6 +24,7 @@ import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTe
 import com.asdflj.ae2thing.network.SPacketInterfaceRecipeMaps;
 import com.asdflj.ae2thing.util.InterfacePatternInventory;
 import com.asdflj.ae2thing.util.InterfaceRecipeMaps;
+import com.asdflj.ae2thing.util.InterfaceTerminalNameCache;
 
 import appeng.api.util.IInterfaceViewable;
 import appeng.container.implementations.ContainerInterfaceTerminal;
@@ -75,6 +76,14 @@ public abstract class MixinContainerInterfaceTerminal {
             && player.openContainer instanceof ContainerWirelessDualInterfaceTerminal container
             && container.delegateContainer == (Object) this) return container;
         return null;
+    }
+
+    @Redirect(
+        method = "updateList",
+        at = @At(value = "INVOKE", target = "Lappeng/api/util/IInterfaceViewable;getRawName()Ljava/lang/String;"),
+        require = 1)
+    private String ae2thing$cachedName(IInterfaceViewable host) {
+        return InterfaceTerminalNameCache.getRawName(host);
     }
 
     @Redirect(
