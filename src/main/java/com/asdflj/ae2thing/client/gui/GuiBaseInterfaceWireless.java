@@ -1056,6 +1056,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = masterList.list.get(id);
 
             if (entry != null) {
+                entry.dispRep = renameCmd.dispRep;
                 entry.setName(renameCmd.newName, renameCmd.suffix);
                 masterList.moveEntry(entry);
             }
@@ -1552,7 +1553,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         InterfaceWirelessEntry(long id, String name, String suffix, int rows, int rowSize, int numSlots, boolean online,
             boolean p2pOutput) {
             this.id = id;
-            this.setName(name, suffix);
+            this.rawName = name;
+            this.nameSuffix = suffix;
             this.resize(rows, rowSize, numSlots);
             this.online = online;
             this.p2pOutput = p2pOutput;

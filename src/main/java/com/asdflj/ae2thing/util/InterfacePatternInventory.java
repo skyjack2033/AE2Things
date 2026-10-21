@@ -216,6 +216,10 @@ public final class InterfacePatternInventory {
 
     public interface Tracker {
 
+        long ae2thing$getId();
+
+        PacketInterfaceTerminalUpdate ae2thing$syncName(PacketInterfaceTerminalUpdate update);
+
         NBTTagCompound ae2thing$updatePattern(int slot);
 
         PacketInterfaceTerminalUpdate ae2thing$syncPatternChanges(PacketInterfaceTerminalUpdate update);

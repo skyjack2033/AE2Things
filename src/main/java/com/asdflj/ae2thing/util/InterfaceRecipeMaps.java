@@ -132,14 +132,16 @@ public final class InterfaceRecipeMaps {
 
     public static Map<Long, Set<String>> snapshot(Map<IInterfaceViewable, ?> tracked) {
         Map<Long, Set<String>> snapshot = new LinkedHashMap<>();
-        boolean gregtech = isSupported();
         for (IInterfaceViewable host : tracked.keySet()) {
             Long id = InterfaceTerminalTarget.getId(tracked, host);
             if (id == null) continue;
-            Set<String> maps = gregtech ? GtResolver.resolve(host) : Collections.emptySet();
-            snapshot.put(id, maps);
+            snapshot.put(id, resolve(host));
         }
         return snapshot;
+    }
+
+    public static Set<String> resolve(IInterfaceViewable host) {
+        return isSupported() ? GtResolver.resolve(host) : Collections.emptySet();
     }
 
     /** Supplied only by the optional GT mixin, so non-GT terminals do not link GT classes. */

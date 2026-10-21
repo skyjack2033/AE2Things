@@ -2,11 +2,13 @@ package com.asdflj.ae2thing.coremod.mixin.ae;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.IChatComponent;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -41,6 +43,12 @@ public abstract class MixinInterfaceTerminalInvTracker implements InterfacePatte
 
     @Shadow
     private int numSlots;
+
+    @Shadow
+    private String name;
+
+    @Shadow
+    private String suffix;
 
     @Unique
     private IInterfaceViewable ae2thing$host;
@@ -96,6 +104,24 @@ public abstract class MixinInterfaceTerminalInvTracker implements InterfacePatte
             this.ae2thing$lastPatterns = snapshot.copyPatternReferences();
         }
         ci.cancel();
+    }
+
+    @Override
+    public long ae2thing$getId() {
+        return this.id;
+    }
+
+    @Override
+    public PacketInterfaceTerminalUpdate ae2thing$syncName(PacketInterfaceTerminalUpdate update) {
+        String rawName = InterfaceTerminalNameCache.getRawName(this.ae2thing$host);
+        IChatComponent component = this.ae2thing$host.getNameSuffix();
+        String currentSuffix = component == null ? null : IChatComponent.Serializer.func_150696_a(component);
+        if (Objects.equals(this.name, rawName) && Objects.equals(this.suffix, currentSuffix)) return update;
+        if (update == null) update = new PacketInterfaceTerminalUpdate();
+        update.addRenamedEntry(this.id, rawName, currentSuffix, this.ae2thing$host.getDisplayRep());
+        this.name = rawName;
+        this.suffix = currentSuffix;
+        return update;
     }
 
     @Override

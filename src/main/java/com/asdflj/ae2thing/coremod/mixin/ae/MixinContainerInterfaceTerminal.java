@@ -23,11 +23,13 @@ import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.network.SPacketInterfaceRecipeMaps;
 import com.asdflj.ae2thing.util.InterfacePatternInventory;
-import com.asdflj.ae2thing.util.InterfaceRecipeMaps;
 import com.asdflj.ae2thing.util.InterfaceTerminalNameCache;
+import com.asdflj.ae2thing.util.InterfaceTerminalRefresh;
 
+import appeng.api.networking.IGridNode;
 import appeng.api.util.IInterfaceViewable;
 import appeng.container.implementations.ContainerInterfaceTerminal;
+import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInterfaceTerminalUpdate;
 
 @Mixin(value = ContainerInterfaceTerminal.class, remap = false)
@@ -38,35 +40,37 @@ public abstract class MixinContainerInterfaceTerminal {
     private Map<IInterfaceViewable, ?> tracked;
 
     @Unique
-    private int ae2thing$recipeMapRefreshTicks;
+    private int ae2thing$listRefreshTicks;
 
     @Unique
-    private boolean ae2thing$recipeMapRefreshPending;
-
-    @Unique
-    private Map<Long, Set<String>> ae2thing$lastRecipeMaps;
+    private InterfaceTerminalRefresh ae2thing$refresh;
 
     @Inject(method = "detectAndSendChanges", at = @At("HEAD"), remap = true, require = 1)
-    private void ae2thing$scheduleRecipeMaps(CallbackInfo ci) {
+    private void ae2thing$scheduleList(CallbackInfo ci) {
         if (this.ae2thing$getWirelessContainer() == null) return;
-        if (this.ae2thing$lastRecipeMaps == null || ++this.ae2thing$recipeMapRefreshTicks >= 10) {
-            this.ae2thing$recipeMapRefreshTicks = 0;
-            this.ae2thing$recipeMapRefreshPending = true;
+        if (++this.ae2thing$listRefreshTicks >= 100) {
+            this.ae2thing$listRefreshTicks = 0;
             ((ContainerInterfaceTerminal) (Object) this).scheduleUpdate();
         }
     }
 
-    @Inject(method = "updateList", at = @At("RETURN"), require = 1)
-    private void ae2thing$syncRecipeMaps(CallbackInfoReturnable<PacketInterfaceTerminalUpdate> cir) {
+    @Inject(method = "detectAndSendChanges", at = @At("TAIL"), remap = true, require = 1)
+    private void ae2thing$refreshTracked(CallbackInfo ci) {
         ContainerWirelessDualInterfaceTerminal container = this.ae2thing$getWirelessContainer();
-        if (container == null || !this.ae2thing$recipeMapRefreshPending) return;
-        this.ae2thing$recipeMapRefreshPending = false;
-        Map<Long, Set<String>> snapshot = InterfaceRecipeMaps.snapshot(this.tracked);
-        if (snapshot.equals(this.ae2thing$lastRecipeMaps)) return;
-        this.ae2thing$lastRecipeMaps = snapshot;
-        AE2Thing.proxy.netHandler.sendTo(
-            new SPacketInterfaceRecipeMaps(container.windowId, snapshot),
-            (EntityPlayerMP) container.getPlayerInv().player);
+        if (container == null || !container.isValidContainer()) return;
+        IGridNode node = container.getNetworkNode();
+        if (node == null || !node.isActive()) return;
+        if (this.ae2thing$refresh == null) this.ae2thing$refresh = new InterfaceTerminalRefresh();
+        PacketInterfaceTerminalUpdate update = this.ae2thing$refresh.tick(this.tracked);
+        EntityPlayerMP player = (EntityPlayerMP) container.getPlayerInv().player;
+        if (update != null) {
+            update.encode();
+            NetworkHandler.instance.sendTo(update, player);
+        }
+        Map<Long, Set<String>> snapshot = this.ae2thing$refresh.takeRecipeMaps();
+        if (snapshot != null) {
+            AE2Thing.proxy.netHandler.sendTo(new SPacketInterfaceRecipeMaps(container.windowId, snapshot), player);
+        }
     }
 
     @Unique
@@ -128,7 +132,9 @@ public abstract class MixinContainerInterfaceTerminal {
 
     @Inject(method = "updateList", at = @At("RETURN"), cancellable = true, require = 1)
     private void ae2thing$refreshPatterns(CallbackInfoReturnable<PacketInterfaceTerminalUpdate> cir) {
-        // A fixed capacity no longer triggers AE2's inventory refresh when GTNL's dynamic rows change.
+        this.ae2thing$listRefreshTicks = 0;
+        if (this.ae2thing$refresh != null) this.ae2thing$refresh.invalidate();
+        if (this.ae2thing$getWirelessContainer() != null) return;
         PacketInterfaceTerminalUpdate update = cir.getReturnValue();
         for (Object tracker : this.tracked.values()) {
             if (tracker instanceof InterfacePatternInventory.Tracker extended) {
