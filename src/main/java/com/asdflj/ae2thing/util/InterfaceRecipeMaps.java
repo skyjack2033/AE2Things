@@ -46,6 +46,7 @@ import gregtech.common.tileentities.machines.MTEHatchCraftingInputSlave;
 public final class InterfaceRecipeMaps {
 
     private static final String GTNL_PROXY = "com.science.gtnl.common.machine.hatch.SuperCraftingInputProxy";
+    private static final String GTNL_INTERFACE_NAME_HATCH = "com.science.gtnl.api.mixinHelper.IInterfaceNameHatch";
     private static final ClassValue<List<Method>> GTNL_PROXY_MASTERS = new ClassValue<>() {
 
         @Override
@@ -167,6 +168,25 @@ public final class InterfaceRecipeMaps {
             }
         };
 
+        private static final ClassValue<Optional<GtnlInterfaceNameMethods>> GTNL_INTERFACE_NAME_METHODS = new ClassValue<>() {
+
+            @Override
+            protected Optional<GtnlInterfaceNameMethods> computeValue(Class<?> type) {
+                try {
+                    Class<?> api = Class.forName(GTNL_INTERFACE_NAME_HATCH, false, type.getClassLoader());
+                    if (!api.isAssignableFrom(type)) return Optional.empty();
+                    return Optional.of(
+                        new GtnlInterfaceNameMethods(
+                            api.getMethod("getInterfaceNameControllers"),
+                            api.getMethod("getInterfaceNameRecipeMap")));
+                } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                    return Optional.empty();
+                }
+            }
+        };
+
+        private record GtnlInterfaceNameMethods(Method controllers, Method recipeMap) {}
+
         private GtResolver() {}
 
         private static Set<String> resolve(IInterfaceViewable host) {
@@ -220,6 +240,7 @@ public final class InterfaceRecipeMaps {
         }
 
         private static void collectHatch(MTEHatch hatch, Set<String> maps, Set<IMetaTileEntity> visited) {
+            collectGtnlInterfaceName(hatch, maps, visited);
             if (!(hatch instanceof HatchControllers source)) return;
             for (Object owner : source.ae2thing$getRecipeMapControllers()) {
                 if (owner instanceof MTEMultiBlockBase controller) {
@@ -232,6 +253,21 @@ public final class InterfaceRecipeMaps {
                         collect(proxy, maps, visited);
                     }
             }
+        }
+
+        private static void collectGtnlInterfaceName(MTEHatch hatch, Set<String> maps, Set<IMetaTileEntity> visited) {
+            Optional<GtnlInterfaceNameMethods> methods = GTNL_INTERFACE_NAME_METHODS.get(hatch.getClass());
+            if (methods.isEmpty()) return;
+            GtnlInterfaceNameMethods gtnl = methods.get();
+            try {
+                addMap(gtnl.recipeMap.invoke(hatch), maps);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
+            try {
+                Object controllers = gtnl.controllers.invoke(hatch);
+                if (controllers instanceof Iterable<?>iterable) {
+                    for (Object controller : iterable) collect(controller, maps, visited);
+                }
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
         }
 
         private static boolean belongsToController(MTEMultiBlockBase controller, MTEHatch hatch) {
@@ -279,7 +315,11 @@ public final class InterfaceRecipeMaps {
         private static void addMap(IMetaTileEntity machine, Set<String> maps) {
             if (machine instanceof MTEMultiBlockBase controller && !controller.mMachine) return;
             if (!(machine instanceof RecipeMapWorkable workable)) return;
-            RecipeMap<?> map = workable.getRecipeMap();
+            addMap(workable.getRecipeMap(), maps);
+        }
+
+        private static void addMap(Object value, Set<String> maps) {
+            if (!(value instanceof RecipeMap<?>map)) return;
             if (map != null && map.unlocalizedName != null && !map.unlocalizedName.isEmpty()) {
                 maps.add(map.unlocalizedName);
             }
