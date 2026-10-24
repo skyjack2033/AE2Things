@@ -168,8 +168,7 @@ public final class InterfaceRecipeMaps {
             }
         };
 
-        private static final ClassValue<Optional<GtnlInterfaceNameMethods>> GTNL_INTERFACE_NAME_METHODS
-            = new ClassValue<>() {
+        private static final ClassValue<Optional<GtnlInterfaceNameMethods>> GTNL_INTERFACE_NAME_METHODS = new ClassValue<>() {
 
             @Override
             protected Optional<GtnlInterfaceNameMethods> computeValue(Class<?> type) {
@@ -256,8 +255,7 @@ public final class InterfaceRecipeMaps {
             }
         }
 
-        private static void collectGtnlInterfaceName(MTEHatch hatch, Set<String> maps,
-            Set<IMetaTileEntity> visited) {
+        private static void collectGtnlInterfaceName(MTEHatch hatch, Set<String> maps, Set<IMetaTileEntity> visited) {
             Optional<GtnlInterfaceNameMethods> methods = GTNL_INTERFACE_NAME_METHODS.get(hatch.getClass());
             if (methods.isEmpty()) return;
             GtnlInterfaceNameMethods gtnl = methods.get();
@@ -266,7 +264,7 @@ public final class InterfaceRecipeMaps {
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
             try {
                 Object controllers = gtnl.controllers.invoke(hatch);
-                if (controllers instanceof Iterable<?> iterable) {
+                if (controllers instanceof Iterable<?>iterable) {
                     for (Object controller : iterable) collect(controller, maps, visited);
                 }
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {}
@@ -321,7 +319,7 @@ public final class InterfaceRecipeMaps {
         }
 
         private static void addMap(Object value, Set<String> maps) {
-            if (!(value instanceof RecipeMap<?> map)) return;
+            if (!(value instanceof RecipeMap<?>map)) return;
             if (map != null && map.unlocalizedName != null && !map.unlocalizedName.isEmpty()) {
                 maps.add(map.unlocalizedName);
             }
