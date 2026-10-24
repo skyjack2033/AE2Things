@@ -14,12 +14,15 @@ import com.asdflj.ae2thing.nei.object.OrderStack;
 
 import reobf.proghatches.item.ItemProgrammingCircuit;
 import reobf.proghatches.item.ItemProgrammingToolkit;
+import reobf.proghatches.main.MyMod;
 
 public class PHUtil {
 
     public static List<OrderStack<?>> transfer(List<OrderStack<?>> inputs) {
         AtomicBoolean circuit = new AtomicBoolean(false);
-        if (!ItemProgrammingToolkit.holding()) {
+        // p26 logs both helper calls at ERROR level. Read the same public state
+        // directly so a normal NEI transfer does not flood the server log.
+        if (!toolkitHolding()) {
             return inputs;
         }
         AtomicInteger i = new AtomicInteger(0);
@@ -43,7 +46,7 @@ public class PHUtil {
             })
             .collect(Collectors.toList());
 
-        if (!circuit.get() && ItemProgrammingToolkit.addEmptyProgCiruit()) {
+        if (!circuit.get() && ItemProgrammingToolkit.mode == 2) {
             spec.add(0, new OrderStack<>(ItemProgrammingCircuit.wrap(null), 0));
         }
 
@@ -51,5 +54,9 @@ public class PHUtil {
         spec.forEach((orderStack -> orderStack.setIndex(i.getAndIncrement())));
 
         return spec;
+    }
+
+    private static boolean toolkitHolding() {
+        return Math.abs(ItemProgrammingToolkit.lastholdingtick - MyMod.ticker) < 10;
     }
 }

@@ -1,30 +1,24 @@
 package com.asdflj.ae2thing.network;
 
-import static com.asdflj.ae2thing.api.Constants.DISPLAY_ONLY;
-
 import java.io.IOException;
 import java.util.Objects;
 
 import javax.annotation.Nullable;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 
 import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.BlockPos;
-import com.glodblock.github.common.item.ItemFluidDrop;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 
-import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
 import appeng.helpers.InventoryAction;
-import appeng.util.item.AEItemStack;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
@@ -33,6 +27,45 @@ import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.EncoderException;
 
 public class CPacketInventoryAction implements IMessage {
+
+    static IAEStack<?> normalizeCraftingStack(IAEStack<?> stack) {
+        return PatternStackCodec.normalize(stack);
+    }
+
+    public static void openCraftAmount(AEBaseContainer baseContainer, EntityPlayerMP sender, IAEStack<?> requestedStack) {
+        final ContainerOpenContext context = baseContainer.getOpenContext();
+        if (context == null) return;
+
+        Object target = baseContainer.getTarget();
+        final TileEntity te = context.getTile();
+        if (te == null && !(target instanceof WirelessTerminal)) return;
+
+        IAEStack<?> stack = requestedStack != null ? requestedStack : baseContainer.getTargetStack();
+        stack = normalizeCraftingStack(stack);
+        if (stack == null) return;
+
+        baseContainer.setTargetStack(stack);
+        if (te != null) {
+            InventoryHandler.openGui(
+                sender,
+                te.getWorldObj(),
+                new BlockPos(te),
+                Objects.requireNonNull(context.getSide()),
+                GuiType.CRAFTING_AMOUNT);
+        } else {
+            InventoryHandler.openGui(
+                sender,
+                sender.getEntityWorld(),
+                new BlockPos(((WirelessTerminal) target).getInventorySlot(), 0, 0),
+                Objects.requireNonNull(context.getSide()),
+                GuiType.CRAFTING_AMOUNT_ITEM);
+        }
+
+        if (sender.openContainer instanceof final ContainerCraftAmount cca) {
+            cca.setItemToCraft(baseContainer.getTargetStack());
+            cca.detectAndSendChanges();
+        }
+    }
 
     private InventoryAction action;
     private int slot;
@@ -95,50 +128,8 @@ public class CPacketInventoryAction implements IMessage {
         public IMessage onMessage(CPacketInventoryAction message, MessageContext ctx) {
             final EntityPlayerMP sender = ctx.getServerHandler().playerEntity;
             if (sender.openContainer instanceof final AEBaseContainer baseContainer) {
-                Object target = baseContainer.getTarget();
                 if (message.action == InventoryAction.AUTO_CRAFT) {
-                    final ContainerOpenContext context = baseContainer.getOpenContext();
-                    if (context != null) {
-                        final TileEntity te = context.getTile();
-                        if (te != null || target instanceof WirelessTerminal) {
-                            if (message.stack == null){
-                                message.stack = baseContainer.getTargetStack();
-                            }
-                            if(message.stack instanceof IAEItemStack itemStack
-                                && itemStack.getItem() instanceof ItemFluidDrop){
-                                ItemStack is = itemStack.getItemStack().copy();
-                                NBTTagCompound data = is.getTagCompound();
-                                if (data != null) {
-                                    data.removeTag(DISPLAY_ONLY);
-                                    is.setTagCompound(data);
-                                }
-                                baseContainer.setTargetStack(AEItemStack.create(is));
-                            }else{
-                                baseContainer.setTargetStack(message.stack);
-                            }
-                            if(te != null){
-                                InventoryHandler.openGui(
-                                    sender,
-                                    te.getWorldObj(),
-                                    new BlockPos(te),
-                                    Objects.requireNonNull(baseContainer.getOpenContext().getSide()),
-                                    GuiType.CRAFTING_AMOUNT);
-                            }else{
-                                InventoryHandler.openGui(
-                                    sender,
-                                    sender.getEntityWorld(),
-                                    new BlockPos(((WirelessTerminal) target).getInventorySlot(),0,0),
-                                    Objects.requireNonNull(baseContainer.getOpenContext().getSide()),
-                                    GuiType.CRAFTING_AMOUNT_ITEM);
-                            }
-                        }
-                        if (sender.openContainer instanceof final ContainerCraftAmount cca) {
-                            if (baseContainer.getTargetStack() != null) {
-                                cca.setItemToCraft(baseContainer.getTargetStack());
-                            }
-                            cca.detectAndSendChanges();
-                        }
-                    }
+                    openCraftAmount(baseContainer, sender, message.stack);
                 } else {
                     baseContainer.doAction(sender, message.action, message.slot, message.id);
                 }

@@ -25,14 +25,18 @@ import com.asdflj.ae2thing.client.gui.container.BaseMonitor.FluidMonitor;
 import com.asdflj.ae2thing.client.gui.container.BaseMonitor.ItemMonitor;
 import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.inventory.item.INetworkTerminal;
+import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.network.SPacketMEItemInvUpdate;
 import com.asdflj.ae2thing.network.SPacketTypeFilter;
 import com.asdflj.ae2thing.util.HBMAeAddonUtil;
+import com.asdflj.ae2thing.util.TerminalViewMode;
 import com.glodblock.github.common.item.ItemFluidPacket;
 import com.glodblock.github.util.Util;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
+import appeng.api.config.PowerMultiplier;
+import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Settings;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
@@ -89,6 +93,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 this.networkNode = ((INetworkTerminal) monitorable).getGridNode();
             }
             this.serverCM = monitorable.getConfigManager();
+            TerminalViewMode.normalize(this.serverCM);
             this.setMonitor();
         }
     }
@@ -136,6 +141,28 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
 
     public IMEMonitor<IAEItemStack> getMonitor() {
         return this.monitor.getMonitor();
+    }
+
+    public boolean canPullBookmarks(EntityPlayerMP player) {
+        if (!(this.host instanceof WirelessTerminal wireless)) return false;
+        int inventorySlot = wireless.getInventorySlot();
+        if (inventorySlot == -1) inventorySlot = player.inventory.currentItem;
+        if (player.openContainer != this || this.getPlayerInv().player != player
+            || !this.isValidContainer()
+            || !this.canInteractWith(player)
+            || inventorySlot < 0
+            || inventorySlot >= player.inventory.mainInventory.length
+            || player.inventory.getStackInSlot(inventorySlot) != wireless.getItemStack()
+            || this.networkNode == null
+            || !this.networkNode.isActive()
+            || this.networkNode.getGrid() == null
+            || this.getMonitor() == null
+            || this.getPowerSource() == null
+            || !wireless.getWirelessObject()
+                .rangeCheck()
+            || !this.hasAccess(SecurityPermissions.EXTRACT, true)) return false;
+        return this.getPowerSource()
+            .extractAEPower(1, Actionable.SIMULATE, PowerMultiplier.CONFIG) > 0;
     }
 
     public void doMonitorableAction(MonitorableAction action, EntityPlayerMP player) {
@@ -318,6 +345,7 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
                 this.setValidContainer(false);
             }
             if (this.serverCM != null) {
+                TerminalViewMode.normalize(this.serverCM);
                 for (final Settings set : this.serverCM.getSettings()) {
                     final Enum<?> sideLocal = this.serverCM.getSetting(set);
                     final Enum<?> sideRemote = this.clientCM.getSetting(set);
@@ -373,6 +401,10 @@ public abstract class ContainerMonitor extends BaseNetworkContainer implements I
 
     @Override
     public void updateSetting(IConfigManager manager, Enum settingName, Enum newValue) {
+        if (settingName == Settings.VIEW_MODE && newValue == ViewItems.FLOWING) {
+            TerminalViewMode.normalize(manager);
+            return;
+        }
         if (this.getGui() != null) {
             this.getGui()
                 .updateSetting(manager, settingName, newValue);

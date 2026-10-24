@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 import javax.annotation.Nonnull;
 
@@ -28,7 +29,6 @@ import appeng.api.storage.ISaveProvider;
 import appeng.api.storage.StorageChannel;
 import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IItemList;
-import appeng.util.Platform;
 
 public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
 
@@ -45,6 +45,11 @@ public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
     protected final DataStorage storage;
 
     public InfinityFluidStorageCellInventory(ItemStack o, ISaveProvider c, EntityPlayer player) throws AppEngException {
+        this(o, c, BaseInventory::getStorage);
+    }
+
+    InfinityFluidStorageCellInventory(ItemStack o, ISaveProvider c,
+        Function<BaseInventory, DataStorage> storageResolver) throws AppEngException {
         if (o == null) {
             throw new AppEngException("ItemStack was used as a cell, but was not a cell!");
         }
@@ -52,10 +57,16 @@ public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
         this.cellItem = o;
         this.cellType = (IStorageCell) this.cellItem.getItem();
         this.container = c;
-        this.data = Platform.openNbtData(o);
+        this.storage = storageResolver.apply(this);
+        NBTTagCompound tag = o.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            // A client-side NEI lookup has no storage and must not initialize the disk's NBT.
+            if (this.storage != null) o.setTagCompound(tag);
+        }
+        this.data = tag;
         this.storedFluids = this.data.getLong(FLUID_TYPE_TAG);
         this.storedFluidCount = this.data.getLong(FLUID_COUNT_TAG);
-        this.storage = this.getStorage();
     }
 
     @Override
@@ -65,6 +76,9 @@ public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
         }
         if (input.getStackSize() == 0) {
             return null;
+        }
+        if (this.storage == null) {
+            return input;
         }
         if (this.cellType.isBlackListed(input)) {
             return input;
@@ -94,7 +108,7 @@ public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
 
     @Override
     public IAEFluidStack extractItems(IAEFluidStack request, Actionable mode, BaseActionSource src) {
-        if (request == null) {
+        if (request == null || this.storage == null) {
             return null;
         }
 
@@ -147,6 +161,7 @@ public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
 
     @Override
     public IItemList<IAEFluidStack> getAvailableItems(IItemList<IAEFluidStack> out, int iteration) {
+        if (this.storage == null) return out;
         AE2ThingAPI.instance()
             .getStorageManager()
             .addGrid(this.getUUID(), this.drive);
@@ -287,7 +302,7 @@ public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
 
     @Override
     public List<IAEFluidStack> getContents() {
-        if (Platform.isClient()) return Collections.emptyList();
+        if (this.storage == null) return Collections.emptyList();
         List<IAEFluidStack> ret = new ArrayList<>();
         for (IAEFluidStack fluid : this.getCellFluids()) {
             ret.add(fluid);
@@ -297,6 +312,7 @@ public class InfinityFluidStorageCellInventory implements ITFluidCellInventory {
 
     @Override
     public IAEFluidStack getAvailableItem(@Nonnull IAEFluidStack request, int iteration) {
+        if (this.storage == null) return null;
         IAEFluidStack available = this.getCellFluids()
             .findPrecise(request);
         return available == null ? null : available.copy();

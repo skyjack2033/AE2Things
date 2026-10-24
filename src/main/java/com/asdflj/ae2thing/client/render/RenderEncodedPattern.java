@@ -12,9 +12,11 @@ import org.lwjgl.opengl.GL11;
 
 import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.IGuiDrawSlot;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 
 import appeng.api.AEApi;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.container.slot.SlotPlayerHotBar;
 import appeng.container.slot.SlotPlayerInv;
 import appeng.items.misc.ItemEncodedPattern;
@@ -39,16 +41,15 @@ public class RenderEncodedPattern implements ISlotRender {
         if (draw.getAEBaseGui() instanceof GuiBaseInterfaceWireless && stack != null
             && stack.getItem() != null
             && stack.getItem() instanceof ItemEncodedPattern pattern) {
-            final ItemStack output = pattern.getOutput(stack.getItemStack());
+            final IAEStack<?> output = PatternStackCodec.normalize(pattern.getOutputAE(stack.getItemStack()));
+            if (output == null) return true;
             final Minecraft mc = Minecraft.getMinecraft();
-            GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_LIGHTING_BIT);
+            GL11.glPushAttrib(
+                GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_LIGHTING_BIT | GL11.GL_CURRENT_BIT);
             GL11.glPushMatrix();
-            RenderHelper.itemRender.renderItemAndEffectIntoGUI(
-                mc.fontRenderer,
-                mc.getTextureManager(),
-                output,
-                slot.xDisplayPosition,
-                slot.yDisplayPosition);
+            // Native fluid rendering does not include the NEI display item's embedded
+            // quantity. This slot displays the number of patterns below, exactly once.
+            output.drawInGui(mc, slot.xDisplayPosition, slot.yDisplayPosition);
             GL11.glDisable(GL11.GL_LIGHTING);
             if (stack.getStackSize() > 1) {
                 String s1 = String.valueOf(stack.getStackSize());

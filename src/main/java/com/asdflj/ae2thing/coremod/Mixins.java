@@ -3,6 +3,7 @@ package com.asdflj.ae2thing.coremod;
 import javax.annotation.Nonnull;
 
 import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.util.InterfaceRecipeMaps;
 import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
@@ -14,7 +15,11 @@ public enum Mixins implements IMixins {
             "ae.MixinCraftingCPUCluster",
             "ae.MixinPacketMonitorableAction",
             "ae.MixinTileIOPort",
-            "ae.MixinContainerCraftAmount")
+            "ae.MixinContainerCraftAmount",
+            "ae.MixinContainerInterfaceTerminal",
+            "ae.MixinInterfaceTerminalInvTracker",
+            "ae.MixinItemEncodedPattern",
+            "ae.MixinItemEncodedUltimatePattern")
         .addClientMixins(
             "ae.AccessorGuiScrollbar",
             "ae.MixinAEBaseGui",
@@ -31,6 +36,16 @@ public enum Mixins implements IMixins {
 
     BLOCK_RENDERER(new MixinBuilder().addClientMixins("br.MixinBRUtil")
         .addRequiredMod(Mods.BLOCK_RENDERER)
+        .setPhase(Phase.LATE)),
+
+    BOTANIA_NEI(new MixinBuilder().addClientMixins("botania.MixinRecipeHandlerBrewery")
+        .addRequiredMod(Mods.BOTANIA)
+        .addRequiredMod(Mods.NOT_ENOUGH_ITEMS)
+        .setPhase(Phase.LATE)),
+
+    GREGTECH(new MixinBuilder().addCommonMixins("gt.MixinMTEHatch")
+        .addRequiredMod(Mods.GREGTECH)
+        .setApplyIf(InterfaceRecipeMaps::isSupported)
         .setPhase(Phase.LATE)),
 
     NEI(new MixinBuilder()

@@ -1,5 +1,7 @@
 package com.asdflj.ae2thing.client.gui;
 
+import static net.minecraft.client.gui.GuiScreen.isShiftKeyDown;
+
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,8 +49,8 @@ import appeng.container.slot.SlotFakeCraftingMatrix;
 import appeng.container.slot.SlotPatternTerm;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.localization.GuiText;
+import appeng.util.AEStackTypeFilter;
 import appeng.util.IConfigManagerHost;
-import appeng.util.MonitorableTypeFilter;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
 
 public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless implements IWidgetGui, IGuiDrawSlot,
@@ -69,7 +71,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
         super(inventoryPlayer, te);
         container = (ContainerWirelessDualInterfaceTerminal) this.inventorySlots;
         this.typeFilter = new TypeFilterWidget(this.inventorySlots.windowId);
-        this.typeFilter.setFilters(MonitorableTypeFilter.createDefaultMap());
+        this.typeFilter.setFilters(new AEStackTypeFilter().getFiltersMap());
         this.itemPanel = new ItemPanel(this, container, this.configSrc, this);
         this.panels.add(new PatternPanel(this, container));
         this.panels.add(this.itemPanel);
@@ -108,6 +110,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     public void setTextFieldValue(String displayName, int mousex, int mousey, ItemStack stack) {
+        if (isSearchSettingsOpen()) return;
         super.setTextFieldValue(displayName, mousex, mousey, stack);
         this.itemPanel.setTextFieldValue(displayName, mousex, mousey, stack);
     }
@@ -159,6 +162,10 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected void mouseClicked(int xCoord, int yCoord, int btn) {
+        if (isSearchSettingsOpen()) {
+            super.mouseClicked(xCoord, yCoord, btn);
+            return;
+        }
         for (IAEBasePanel panel : this.panels) {
             if (panel.isActive()) {
                 panel.mouseClicked(xCoord, yCoord, btn);
@@ -169,6 +176,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected void mouseClickMove(final int x, final int y, final int c, final long d) {
+        if (isSearchSettingsOpen()) return;
         for (IAEBasePanel panel : this.panels) {
             if (panel.isActive()) {
                 panel.mouseClickMove(x, y, c, d);
@@ -190,6 +198,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected void handleMouseClick(Slot slot, int slotIdx, int ctrlDown, int mouseButton) {
+        if (isSearchSettingsOpen()) return;
         for (IAEBasePanel panel : this.panels) {
             if (!panel.isActive()) continue;
             if (panel.handleMouseClick(slot, slotIdx, ctrlDown, mouseButton)) return;
@@ -200,6 +209,7 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected boolean handleVirtualSlotClick(VirtualMESlot slot, int mouseButton) {
+        if (isSearchSettingsOpen()) return true;
         for (IAEBasePanel panel : this.panels) {
             if (!panel.isActive()) continue;
             if (panel.handleVirtualSlotClick(slot, mouseButton)) return true;
@@ -208,7 +218,27 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
     }
 
     @Override
+    protected void handleDragVirtualSlot(VirtualMESlot slot, int mouseButton) {
+        if (isSearchSettingsOpen()) return;
+        for (IAEBasePanel panel : this.panels) {
+            if (panel.isActive()) {
+                panel.handleDragVirtualSlot(slot, mouseButton);
+            }
+        }
+        super.handleDragVirtualSlot(slot, mouseButton);
+    }
+
+    @Override
+    protected boolean canDragVirtualSlot(VirtualMESlot slot, ItemStack holding) {
+        if (slot instanceof VirtualMEMonitorableSlot && (Keyboard.isKeyDown(Keyboard.KEY_SPACE) || isShiftKeyDown())) {
+            return true;
+        }
+        return super.canDragVirtualSlot(slot, holding);
+    }
+
+    @Override
     protected boolean mouseWheelEvent(int mouseX, int mouseY, int wheel) {
+        if (isSearchSettingsOpen()) return true;
         for (IAEBasePanel panel : this.panels) {
             if (!panel.isActive()) continue;
             if (panel.mouseWheelEvent(mouseX, mouseY, wheel)) return true;
@@ -218,6 +248,10 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
 
     @Override
     protected void keyTyped(char character, int key) {
+        if (isSearchSettingsOpen()) {
+            super.keyTyped(character, key);
+            return;
+        }
         this.xSize = baseXSize;
         for (IAEBasePanel panel : this.panels) {
             if (!panel.isActive()) continue;
@@ -247,7 +281,8 @@ public class GuiWirelessDualInterfaceTerminal extends GuiBaseInterfaceWireless i
                 GuiText.CraftingStatus.getLocal(),
                 itemRender));
         this.craftingStatusBtn.setHideEdge(13); // GuiTabButton implementation //
-        this.typeFilter.init(this.buttonList, this.guiLeft - 18, this.guiTop + 8);
+        // Keep the type filters beside the interface controls, as in GuiMonitor.
+        this.typeFilter.init(this.buttonList, this.guiLeft - 36, this.guiTop + 8);
     }
 
     @Override

@@ -34,12 +34,14 @@ import com.glodblock.github.common.item.ItemFluidPacket;
 import com.mojang.authlib.GameProfile;
 
 import appeng.api.AEApi;
+import appeng.api.config.CraftingMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IDisplayRepo;
 import appeng.api.util.DimensionalCoord;
 import appeng.client.gui.AEBaseGui;
@@ -48,6 +50,7 @@ import appeng.client.me.ItemRepo;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.core.AELog;
 import appeng.core.worlddata.WorldData;
+import appeng.crafting.fast.CraftingJobFast;
 import appeng.crafting.v2.CraftingJobV2;
 import appeng.integration.modules.NEI;
 import appeng.items.tools.powered.ToolWirelessTerminal;
@@ -91,12 +94,15 @@ public class Util {
 
     public static boolean replan(EntityPlayer player, appeng.container.implementations.ContainerCraftConfirm c){
         ICraftingJob job = Ae2Reflect.getJob(c);
-        if(job instanceof CraftingJobV2 jobV2 && jobV2.isDone()){
-            c.simulation = true;
-            c.bytesUsed = 0;
-        }else{
+        // Fast jobs reach the confirmation container only after their synchronous calculation has finished.
+        boolean liteMode = job instanceof CraftingJobFast;
+        if (!liteMode && !(job instanceof CraftingJobV2 jobV2 && jobV2.isDone())) {
             return false;
         }
+        c.simulation = true;
+        c.bytesUsed = 0;
+        c.setErrorMessage("");
+        CraftingMode craftingMode = job.getCraftingMode();
         Object target;
         target = c.getTarget();
         if (target instanceof final IGridHost gh) {
@@ -111,6 +117,15 @@ public class Util {
                 return false;
             }
 
+            // Replanning can be triggered after the original request (for example when
+            // the player changes crafting mode). Keep legacy fluid marker stacks from
+            // leaking back into AE2's native crafting calculator.
+            IAEStack<?> itemToCraft = PatternStackCodec.normalize(c.getItemToCraft());
+            if (itemToCraft == null) {
+                return false;
+            }
+            c.setItemToCraft(itemToCraft);
+
             Future<ICraftingJob> futureJob = null;
             try {
                 final ICraftingGrid cg = g.getCache(ICraftingGrid.class);
@@ -119,7 +134,9 @@ public class Util {
                         c.getWorld(),
                         g,
                         c.getActionSource(),
-                        c.getItemToCraft(),
+                        itemToCraft,
+                        craftingMode == null ? CraftingMode.STANDARD : craftingMode,
+                        liteMode,
                         null);
                 }
 

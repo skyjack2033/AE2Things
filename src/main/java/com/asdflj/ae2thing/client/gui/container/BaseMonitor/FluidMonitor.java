@@ -1,9 +1,7 @@
 package com.asdflj.ae2thing.client.gui.container.BaseMonitor;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -11,7 +9,6 @@ import net.minecraft.inventory.ICrafting;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.network.SPacketMEFluidInvUpdate;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.AEApi;
 import appeng.api.networking.security.BaseActionSource;
@@ -20,24 +17,19 @@ import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.storage.IMEMonitor;
 import appeng.api.storage.IMEMonitorHandlerReceiver;
 import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IItemList;
 import appeng.util.Platform;
 
 public class FluidMonitor implements IMEMonitorHandlerReceiver<IAEFluidStack>, IProcessItemList {
 
     private IMEMonitor<IAEFluidStack> fluidMonitor;
-    private IMEMonitor<IAEItemStack> itemMonitor;
     private final IItemList<IAEFluidStack> fluids = AEApi.instance()
         .storage()
         .createFluidList();
-    private final Set<IAEItemStack> craftingFluids = new HashSet<>();
     private final List<ICrafting> crafters;
-    private final List<IAEFluidStack> toSend = new ArrayList<>();
 
     public FluidMonitor(IStorageGrid storageGrid, List<ICrafting> crafters) {
         this.fluidMonitor = storageGrid.getFluidInventory();
-        this.itemMonitor = storageGrid.getItemInventory();
         this.crafters = crafters;
     }
 
@@ -48,10 +40,6 @@ public class FluidMonitor implements IMEMonitorHandlerReceiver<IAEFluidStack>, I
     @Override
     public boolean isValid(Object verificationToken) {
         return this.fluidMonitor != null;
-    }
-
-    public void addItemCraftingFluid(IAEItemStack is) {
-        craftingFluids.add(is);
     }
 
     @Override
@@ -88,65 +76,43 @@ public class FluidMonitor implements IMEMonitorHandlerReceiver<IAEFluidStack>, I
 
     @Override
     public void processItemList() {
-        SPacketMEFluidInvUpdate piu = new SPacketMEFluidInvUpdate();
+        final List<IAEFluidStack> updates = new ArrayList<>();
         if (!this.fluids.isEmpty()) {
             final IItemList<IAEFluidStack> monitorCache = this.fluidMonitor.getStorageList();
-            final IItemList<IAEItemStack> itemMonitorCache = this.itemMonitor.getStorageList();
             for (final IAEFluidStack is : this.fluids) {
-                IAEFluidStack send = monitorCache.findPrecise(is);
-                if (send != null) {
-                    IAEItemStack item = itemMonitorCache.findPrecise(ItemFluidDrop.newAeStack(send));
-                    if (item != null) {
-                        send = send.copy();
-                        send.setCraftable(item.isCraftable());
-                    }
-                    toSend.add(send);
-                } else {
-                    is.setStackSize(0);
-                    toSend.add(is);
+                final IAEFluidStack stored = monitorCache.findPrecise(is);
+                final IAEFluidStack send = stored == null ? is.copy() : stored.copy();
+                if (stored == null) {
+                    // A missing record is a removal update. Clear all status
+                    // bits as well as the amount so a deleted pattern cannot
+                    // leave a craftable ghost in the client repository.
+                    send.setStackSize(0);
+                    send.setCraftable(false);
+                    send.setCountRequestable(0);
+                    send.setCountRequestableCrafts(0);
                 }
+                updates.add(send);
             }
-            piu.addAll(toSend);
             this.fluids.resetStatus();
         }
-        if (!this.craftingFluids.isEmpty()) {
-            final IItemList<IAEFluidStack> monitorCache = this.fluidMonitor.getStorageList();
-            for (IAEItemStack is : this.craftingFluids) {
-                is.setStackSize(1);
-                IAEFluidStack fs = ItemFluidDrop.getAeFluidStack(is);
-                if (fs == null) continue;
-                if (monitorCache.findPrecise(fs) == null) {
-                    fs.setStackSize(0);
-                    fs.setCraftable(is.isCraftable());
-                    toSend.add(fs);
-                }
-            }
-            piu.addAll(toSend);
-            this.craftingFluids.clear();
-        }
-        if (!piu.isEmpty()) {
+        if (!updates.isEmpty()) {
+            final SPacketMEFluidInvUpdate piu = new SPacketMEFluidInvUpdate();
+            piu.addAll(updates);
             for (final Object c : this.crafters) {
                 if (c instanceof EntityPlayer) {
                     AE2Thing.proxy.netHandler.sendTo(piu, (EntityPlayerMP) c);
                 }
             }
         }
-        toSend.clear();
     }
 
     @Override
     public void queueInventory(ICrafting c) {
-        if (Platform.isServer() && c instanceof EntityPlayer && this.fluidMonitor != null && this.itemMonitor != null) {
+        if (Platform.isServer() && c instanceof EntityPlayer && this.fluidMonitor != null) {
             final IItemList<IAEFluidStack> monitorCache = this.fluidMonitor.getStorageList();
-            final IItemList<IAEItemStack> itemMonitorCache = this.itemMonitor.getStorageList();
             List<IAEFluidStack> toSend = new ArrayList<>();
             for (final IAEFluidStack is : monitorCache) {
-                final IAEFluidStack send = is.copy();
-                IAEItemStack fluidDrop = itemMonitorCache.findPrecise(ItemFluidDrop.newAeStack(is));
-                if (fluidDrop != null) {
-                    send.setCraftable(fluidDrop.isCraftable());
-                }
-                toSend.add(send);
+                toSend.add(is.copy());
             }
             SPacketMEFluidInvUpdate piu = new SPacketMEFluidInvUpdate();
             piu.addAll(toSend);
@@ -161,8 +127,7 @@ public class FluidMonitor implements IMEMonitorHandlerReceiver<IAEFluidStack>, I
         }
     }
 
-    public void setMonitor(IMEMonitor<IAEFluidStack> fluidMonitor, IMEMonitor<IAEItemStack> itemMonitor) {
+    public void setMonitor(IMEMonitor<IAEFluidStack> fluidMonitor) {
         this.fluidMonitor = fluidMonitor;
-        this.itemMonitor = itemMonitor;
     }
 }

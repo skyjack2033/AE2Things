@@ -93,6 +93,27 @@ ae2thing.gui.pattern_rename=自定义名称
 ae2thing.gui.button.replan=重新规划合成任务
 ae2thing.gui.terminal_menu.page=当前页数: %s
 ae2thing.gui.terminal_menu.max_page=最大页数: %s
+ae2thing.gui.search_settings=接口搜索设置
+ae2thing.config.title=AE2T 设置
+ae2thing.config.interface_terminal_search=接口配方搜索
+ae2thing.config.interface_terminal_search.tooltip=客户端配方搜索设置，修改后无需重启。
+ae2thing.config.interface_terminal_search.auto_fill=NEI 配方转移后自动搜索
+ae2thing.config.interface_terminal_search.auto_fill.tooltip=使用转移的 NEI 配方筛选接口；关闭后保留现有搜索条件。
+ae2thing.config.interface_terminal_search.append_circuit_numbers=搜索包含电路编号
+ae2thing.config.interface_terminal_search.append_circuit_numbers.tooltip=将集成电路编号加入搜索条件；其他不消耗的物品由另一选项控制。
+ae2thing.config.interface_terminal_search.append_non_consumed_items=搜索包含模具等不消耗的物品
+ae2thing.config.interface_terminal_search.append_non_consumed_items.tooltip=将模具、透镜等不消耗的配方物品名称加入搜索条件。
+ae2thing.config.interface_terminal_search.match_recipe_maps=根据机器配方表匹配
+ae2thing.config.interface_terminal_search.match_recipe_maps.tooltip=按接口所属机器的配方表匹配，不依赖机器显示名称；无法识别配方表时回退到名称匹配。
+ae2thing.config.general=通用设置（需要重启）
+ae2thing.config.general.tooltip=AE2T 的现有通用配置；修改后需要重启游戏。
+ae2thing.config.general.cell_link=链接相同 UUID 的存储元件
+ae2thing.config.general.magnet_range=背包终端磁铁范围
+ae2thing.config.general.update_view_thread=终端后台视图更新
+ae2thing.config.general.infinity_connection_range=无线连接器终端无限连接范围
+ae2thing.config.general.ex_io_port_transfer_rate=扩展 IO 端口传输速率
+ae2thing.config.general.tic_support=背包终端支持匠魂工具
+ae2thing.config.general.crafting_history_size=合成历史记录数量
 ae2thing.nei.find_cell_item.highlight=存储方块已高亮，坐标：%d, %d, %d
 ae2thing.nei.find_cell_item.in_other_dim=存储方块位于 %d 世界，无法高亮显示
 ae2thing.key.open_backpack_terminal=打开背包终端
@@ -138,9 +159,17 @@ nei.options.ae2thing.dual_interface_terminal_fill_circuit=二合一接口终端�
 nei.options.ae2thing.dual_interface_terminal_fill_circuit.true=是
 nei.options.ae2thing.dual_interface_terminal_fill_circuit.false=否
 
-nei.options.ae2thing.dual_interface_terminal_append_circuit_damage=二合一接口终端将nc物品(模头，电路板等)追加到配方名称
+nei.options.ae2thing.dual_interface_terminal_append_circuit_damage=接口配方搜索：包含电路编号
 nei.options.ae2thing.dual_interface_terminal_append_circuit_damage.true=是
 nei.options.ae2thing.dual_interface_terminal_append_circuit_damage.false=否
+
+nei.options.ae2thing.dual_interface_terminal_append_non_consumed_items=接口配方搜索：包含模具等不消耗的物品
+nei.options.ae2thing.dual_interface_terminal_append_non_consumed_items.true=是
+nei.options.ae2thing.dual_interface_terminal_append_non_consumed_items.false=否
+
+nei.options.ae2thing.dual_interface_terminal_match_recipe_maps=接口配方搜索：根据机器配方表匹配
+nei.options.ae2thing.dual_interface_terminal_match_recipe_maps.true=是
+nei.options.ae2thing.dual_interface_terminal_match_recipe_maps.false=否
 
 nei.options.ae2thing.crafting_notification=自动合成完成时发送提醒(需要无线终端)
 nei.options.ae2thing.crafting_notification.true=是

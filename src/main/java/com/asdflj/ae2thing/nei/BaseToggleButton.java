@@ -17,4 +17,23 @@ public class BaseToggleButton extends OptionToggleButton {
         tag.getTag(name)
             .getBooleanValue(defaultValue);
     }
+
+    @Override
+    public boolean state() {
+        return NEI_TH_Config.isInterfaceTerminalSearchOption(name) ? NEI_TH_Config.getConfigValue(name) : super.state();
+    }
+
+    @Override
+    public boolean onClick(int button) {
+        if (NEI_TH_Config.isInterfaceTerminalSearchOption(name)) {
+            NEI_TH_Config.setInterfaceTerminalSearchOption(name, !state());
+            return true;
+        }
+        return super.onClick(button);
+    }
+
+    @Override
+    public boolean showWorldSelector() {
+        return !NEI_TH_Config.isInterfaceTerminalSearchOption(name) && super.showWorldSelector();
+    }
 }

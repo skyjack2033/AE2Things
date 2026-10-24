@@ -19,17 +19,15 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
-import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.client.gui.BaseMEGui;
 import com.asdflj.ae2thing.client.gui.IGuiMonitorTerminal;
 import com.asdflj.ae2thing.client.gui.IWidgetGui;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.me.AdvItemRepo;
 import com.asdflj.ae2thing.integration.Mods;
-import com.asdflj.ae2thing.network.CPacketInventoryAction;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.AspectUtil;
-import com.glodblock.github.common.item.ItemFluidDrop;
+import com.asdflj.ae2thing.util.TerminalViewMode;
 
 import appeng.api.config.SearchBoxMode;
 import appeng.api.config.Settings;
@@ -50,7 +48,6 @@ import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMonitorableAction;
 import appeng.core.sync.packets.PacketValueConfig;
-import appeng.helpers.InventoryAction;
 import appeng.helpers.MonitorableAction;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
@@ -81,7 +78,6 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     private GuiImgButton searchBoxSettings;
     private static String memoryText = "";
     private final TextHistory history;
-    private int lastClickTime = 0;
 
     public ItemPanel(IWidgetGui gui, ContainerWirelessDualInterfaceTerminal container, IConfigManager configSrc,
         ISortSource source) {
@@ -252,14 +248,17 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     @Override
     public void mouseClicked(int xCoord, int yCoord, int btn) {
         this.saveSearchString();
-        this.searchField.mouseClicked(xCoord, yCoord, btn);
-        if (btn == 1 && this.searchField.isMouseIn(xCoord, yCoord)) {
-            setSearchString("", true);
+        if (this.searchField != null) {
+            this.searchField.mouseClicked(xCoord, yCoord, btn);
+            if (btn == 1 && this.searchField.isMouseIn(xCoord, yCoord)) {
+                setSearchString("", true);
+            }
         }
         this.scrollbar.click(this.parent, xCoord - this.parent.getGuiLeft(), yCoord - this.parent.getGuiTop());
     }
 
     public void setSearchString(String memoryText, boolean updateView) {
+        if (this.searchField == null) return;
         this.searchField.setText(memoryText);
         this.repo.setSearchString(memoryText);
         if (updateView) {
@@ -285,7 +284,7 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
 
     @Override
     public void setTextFieldValue(String displayName, int mousex, int mousey, ItemStack stack) {
-        if (!searchField.isMouseIn(mousex, mousey)) return;
+        if (this.searchField == null || !searchField.isMouseIn(mousex, mousey)) return;
         if (Mods.THAUMIC_ENERGISTICS.isModLoaded() && AspectUtil.getAspectFromJar(stack) != null) {
             setSearchString(
                 Objects.requireNonNull(AspectUtil.getAspectFromJar(stack))
@@ -298,11 +297,6 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     }
 
     private boolean meSlotClick(VirtualMESlot slot, int ctrlDown, int clickMode) {
-        // Temporary solution
-        if (lastClickTime == Minecraft.getMinecraft().thePlayer.ticksExisted) {
-            return false;
-        }
-        lastClickTime = Minecraft.getMinecraft().thePlayer.ticksExisted;
         saveSearchString();
         final EntityPlayer player = Minecraft.getMinecraft().thePlayer;
         if (this.parent.updateFluidContainer(slot, ctrlDown, clickMode)) return true;
@@ -342,15 +336,8 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
         }
         if (action == MonitorableAction.AUTO_CRAFT) {
             this.inventorySlots.setTargetStack(aeStack);
-            AE2Thing.proxy.netHandler.sendToServer(
-                new CPacketInventoryAction(
-                    InventoryAction.AUTO_CRAFT,
-                    Ae2ReflectClient.getInventorySlots(this.parent)
-                        .size(),
-                    -2,
-                    aeStack));
+            NetworkHandler.instance.sendToServer(new PacketMonitorableAction(MonitorableAction.AUTO_CRAFT, -1));
         } else if (action != null) {
-            if (itemStack != null && itemStack.getItem() instanceof ItemFluidDrop) itemStack = null;
             this.inventorySlots.setTargetStack(itemStack);
             final PacketMonitorableAction p = new PacketMonitorableAction(action, -1);
             NetworkHandler.instance.sendToServer(p);
@@ -369,6 +356,18 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     }
 
     @Override
+    public void handleDragVirtualSlot(VirtualMESlot slot, int mouseButton) {
+        if (!(slot instanceof VirtualMEMonitorableSlot)) return;
+        if (!isShiftKeyDown() && !Keyboard.isKeyDown(Keyboard.KEY_SPACE)) return;
+
+        final boolean pickBlock = mouseButton == GuiMEMonitorable.keyBindPickBlockAction;
+        final int ctrlDown = pickBlock ? 0 : mouseButton;
+        final int clickMode = pickBlock ? CLICK_MODE_PICK_BLOCK
+            : (isShiftKeyDown() ? CLICK_MODE_SHIFT : CLICK_MODE_NORMAL);
+        meSlotClick(slot, ctrlDown, clickMode);
+    }
+
+    @Override
     public boolean handleMouseClick(Slot slot, int slotIdx, int ctrlDown, int mouseButton) {
         return false;
     }
@@ -379,7 +378,7 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
             final boolean backwards = Mouse.isButtonDown(1);
             if (iBtn.getSetting() != Settings.ACTIONS) {
                 final Enum<?> cv = iBtn.getCurrentValue();
-                final Enum<?> next = Platform.rotateEnum(cv, backwards, iBtn.getSetting().getPossibleValues());
+                final Enum<?> next = Platform.rotateEnum(cv, backwards, TerminalViewMode.getPossibleValues(iBtn.getSetting()));
                 if (btn == this.searchBoxSettings) {
                     AEConfig.instance.settings.putSetting(iBtn.getSetting(), next);
                 } else if (btn == this.SortByBox || btn == this.SortDirBox || btn == this.ViewBox) {
@@ -408,11 +407,33 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
 
     @Override
     public void mouseClickMove(int x, int y, int c, long d) {
-        this.scrollbar.click(this.parent, x - this.parent.getGuiLeft(), y - this.parent.getGuiTop());
+        this.scrollbar.clickMove(y - this.parent.getGuiTop());
     }
 
     @Override
     public boolean mouseWheelEvent(int mouseX, int mouseY, int wheel) {
+        if (isShiftKeyDown() && wheel != 0) {
+            for (VirtualMEMonitorableSlot slot : this.gui.getMeSlots()) {
+                if (!slot.isHovered(mouseX - this.parent.getGuiLeft() + 1, mouseY - this.parent.getGuiTop() + 1))
+                    continue;
+
+                final IAEStack<?> aeStack = slot.getAEStack();
+                final MonitorableAction direction = wheel > 0 ? MonitorableAction.ROLL_DOWN : MonitorableAction.ROLL_UP;
+                final EntityPlayer player = Minecraft.getMinecraft().thePlayer;
+                if (direction == MonitorableAction.ROLL_DOWN && player.inventory.getItemStack() == null) {
+                    break;
+                }
+                if (direction == MonitorableAction.ROLL_UP && !(aeStack instanceof IAEItemStack)) {
+                    break;
+                }
+
+                this.inventorySlots.setTargetStack(aeStack);
+                for (int i = 0; i < Math.abs(wheel); i++) {
+                    NetworkHandler.instance.sendToServer(new PacketMonitorableAction(direction, -1));
+                }
+                return true;
+            }
+        }
         if (Mods.NOT_ENOUGH_ITEMS.isModLoaded() && this.searchField.isMouseIn(mouseX, mouseY) && isNEISearch()) {
             TextHistory.Direction direction;
             switch (wheel) {
@@ -524,7 +545,6 @@ public class ItemPanel implements IAEBasePanel, IGuiMonitorTerminal, IConfigMana
     @Override
     public void postStackUpdate(List<? extends IAEStack<?>> list) {
         for (IAEStack<?> stack : list) {
-            if (stack instanceof IAEItemStack item && item.getItem() instanceof ItemFluidDrop) continue;
             this.repo.postUpdate(stack);
         }
         this.repo.updateView();

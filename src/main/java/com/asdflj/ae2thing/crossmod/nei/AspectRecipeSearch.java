@@ -1,4 +1,4 @@
-package com.asdflj.ae2thing.coremod.mixin.tc.nei;
+package com.asdflj.ae2thing.crossmod.nei;
 
 import net.minecraft.item.ItemStack;
 
@@ -8,7 +8,10 @@ import com.gtnewhorizons.aspectrecipeindex.common.items.ItemAspect;
 
 import thaumcraft.api.aspects.Aspect;
 
-public class Util {
+/** Runtime helper for recipe handlers injected by Mixin; it must remain outside the reserved mixin package. */
+public final class AspectRecipeSearch {
+
+    private AspectRecipeSearch() {}
 
     public static ItemStack itemPhial2ItemAspect(ItemStack item) {
         if (item != null && item.getItem() instanceof ItemPhial) {

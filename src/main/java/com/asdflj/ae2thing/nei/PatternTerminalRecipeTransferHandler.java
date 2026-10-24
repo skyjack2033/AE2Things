@@ -1,10 +1,10 @@
 package com.asdflj.ae2thing.nei;
 
-import static com.asdflj.ae2thing.nei.NEI_TH_Config.getConfigValue;
 import static com.asdflj.ae2thing.proxy.ClientProxy.mouseHandlers;
 import static net.minecraft.client.gui.GuiScreen.isShiftKeyDown;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 
@@ -15,6 +15,7 @@ import net.minecraft.item.ItemStack;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.api.Constants;
+import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.GuiInfusionPatternTerminal;
 import com.asdflj.ae2thing.client.gui.GuiWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.integration.Mods;
@@ -62,6 +63,7 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
     public PatternTerminalRecipeTransferHandler() {
         mouseHandlers.add((event, overlayButton) -> {
             GuiScreen screen = Minecraft.getMinecraft().currentScreen;
+            if (screen instanceof GuiBaseInterfaceWireless terminal && terminal.isSearchSettingsOpen()) return false;
             if (screen instanceof AEBaseGui g && overlayButton != null && GuiScreen.isShiftKeyDown()) {
                 GuiOverlayButton btn = ClientProxy.getOverlayButton();
                 if (btn != null && g.theSlot instanceof SlotFake slot) {
@@ -98,14 +100,12 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
     @Override
     public void overlayRecipe(GuiContainer firstGui, IRecipeHandler recipe, int recipeIndex, boolean shift) {
         if (firstGui instanceof GuiInfusionPatternTerminal) {
-            List<OrderStack<?>> in = FluidRecipe.getPackageInputs(recipe, recipeIndex, false);
+            List<OrderStack<?>> in = FluidRecipe.getPackageInputs(recipe, recipeIndex);
             List<OrderStack<?>> out = FluidRecipe.getPackageOutputs(recipe, recipeIndex, false);
             AE2Thing.proxy.netHandler.sendToServer(new CPacketTransferRecipe(out, in, true, shift));
         } else if (firstGui instanceof GuiWirelessDualInterfaceTerminal) {
-            boolean priority = ((GuiWirelessDualInterfaceTerminal) firstGui).container.prioritize;
             boolean craft = shouldCraft(recipe);
-            List<OrderStack<?>> in;
-            in = FluidRecipe.getPackageInputs(recipe, recipeIndex, !craft && priority);
+            List<OrderStack<?>> in = FluidRecipe.getPackageInputs(recipe, recipeIndex);
             setSuggestion(craft, recipe, (GuiWirelessDualInterfaceTerminal) firstGui, in);
             if (Mods.PROGRAMMABLE_HATCHES.isModLoaded() && !craft) {
                 in = PHUtil.transfer(in);
@@ -118,6 +118,9 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
     private void setSuggestion(boolean craft, IRecipeHandler recipe, GuiWirelessDualInterfaceTerminal gui,
         List<OrderStack<?>> in) {
         String suggestion;
+        String recipeMapId = "";
+        String circuitTerms = "";
+        String itemTerms = "";
         if (craft) {
             com.google.common.base.Optional<ItemStack> molecular = AEApi.instance()
                 .definitions()
@@ -130,16 +133,14 @@ public class PatternTerminalRecipeTransferHandler implements IOverlayHandler {
                 suggestion = "";
             }
         } else if (Mods.isGt5UnofficialLoaded() || Mods.isLegacyGt5Loaded()) {
-            suggestion = GTUtil.getRecipeName(recipe, in);
+            suggestion = GTUtil.getRecipeName(recipe, Collections.emptyList());
+            recipeMapId = GTUtil.getRecipeMapId(recipe);
+            circuitTerms = GTUtil.getRecipeSearchTerms(recipe, in, true, false);
+            itemTerms = GTUtil.getRecipeSearchTerms(recipe, in, false, true);
         } else {
             suggestion = recipe.getRecipeName();
         }
-        if (getConfigValue(ButtonConstants.DUAL_INTERFACE_TERMINAL)) {
-            gui.setSearchFieldText(suggestion);
-            gui.setHighlightSlot();
-        } else {
-            gui.setSearchFieldSuggestion(suggestion);
-        }
+        gui.setRecipeSearch(suggestion, recipeMapId, circuitTerms, itemTerms);
     }
 
     private boolean notUseOther(IRecipeHandler recipeHandler) {

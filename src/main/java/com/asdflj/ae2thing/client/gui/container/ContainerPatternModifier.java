@@ -7,17 +7,13 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraftforge.fluids.FluidStack;
 
 import com.asdflj.ae2thing.api.Constants;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotEncodedPatternInput;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotReplaceFake;
 import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
-import com.glodblock.github.common.item.ItemFluidDrop;
-import com.glodblock.github.common.item.ItemFluidEncodedPattern;
-import com.glodblock.github.common.item.ItemFluidPacket;
-import com.glodblock.github.loader.ItemAndBlockHolder;
-import com.glodblock.github.util.FluidPatternDetails;
+import com.asdflj.ae2thing.util.PatternModifierStacks;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.glodblock.github.util.Util;
 
 import appeng.api.AEApi;
@@ -25,12 +21,11 @@ import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.slot.SlotFake;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
-import codechicken.nei.recipe.StackInfo;
 
 public class ContainerPatternModifier extends AEBaseContainer implements IPatternValueContainer {
 
@@ -117,62 +112,54 @@ public class ContainerPatternModifier extends AEBaseContainer implements IPatter
         }
     }
 
-    protected boolean checkHasFluidPattern(IAEItemStack[] in, IAEItemStack[] out) {
-        return hasFluidPatternStack(in) || hasFluidPatternStack(out);
-    }
-
-    private boolean hasFluidPatternStack(IAEItemStack[] stacks) {
-        for (IAEItemStack stack : stacks) {
-            if (stack != null && ItemFluidDrop.isFluidStack(stack.getItemStack())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public void replacePattern() {
         if (!this.replaceSource.getHasStack()) return;
         ItemStack source = this.replaceSource.getStack();
         ItemStack target = this.replaceTarget.getStack();
-        try {
-            for (int i = 0; i < patterns.getSizeInventory(); i++) {
-                ItemStack stack = patterns.getStackInSlot(i);
-                if (stack != null && stack.getItem() instanceof ICraftingPatternItem cpi) {
-                    ICraftingPatternDetails details;
-                    if (stack.getItem() instanceof ItemFluidEncodedPattern fluidEncodedPattern) {
-                        details = fluidEncodedPattern
-                            .getPatternForItem(stack, this.getInventoryPlayer().player.worldObj);
-                    } else {
-                        details = cpi.getPatternForItem(stack, this.getInventoryPlayer().player.worldObj);
-                    }
-                    IAEItemStack[] in = this.replacePattern(details.getInputs(), source, target, details);
-                    IAEItemStack[] out = this.replacePattern(details.getOutputs(), source, target, details);
-                    if (checkHasFluidPattern(in, out)) {
-                        encodeFluidPattern(details, in, out, i, stack);
-                    } else {
-                        encode(details, in, out, i);
-                    }
+        IAEStack<?> nativeSource = PatternStackCodec.toPatternStack(source);
+        IAEStack<?> nativeTarget = PatternStackCodec.toPatternStack(target);
+        if (nativeSource == null || target != null && nativeTarget == null) return;
 
+        for (int i = 0; i < patterns.getSizeInventory(); i++) {
+            ItemStack stack = patterns.getStackInSlot(i);
+            if (stack == null || !(stack.getItem() instanceof ICraftingPatternItem cpi)) continue;
+            try {
+                // Helpers may cache a failed parse in the supplied NBT, so inspect a copy.
+                ICraftingPatternDetails details = cpi
+                    .getPatternForItem(stack.copy(), this.getInventoryPlayer().player.worldObj);
+                if (details == null) continue;
+                IAEStack<?>[] in = this.replacePattern(details.getAEInputs(), nativeSource, nativeTarget, details);
+                IAEStack<?>[] out = this.replacePattern(details.getAEOutputs(), nativeSource, nativeTarget, details);
+                if (in == null || out == null) continue;
+                if (details.isCraftable()) {
+                    encode(details, in, out, i);
+                } else {
+                    encodeProcessingPattern(details, in, out, i);
                 }
+            } catch (RuntimeException ignored) {
+                // Keep a malformed pattern intact and continue updating the other slots.
             }
-        } catch (Throwable ignored) {}
+        }
     }
 
-    private void encodeFluidPattern(ICraftingPatternDetails details, IAEItemStack[] in, IAEItemStack[] out, int slot,
-        ItemStack stack) {
-        FluidPatternDetails fluidDetails;
-        if (details instanceof FluidPatternDetails) {
-            fluidDetails = (FluidPatternDetails) details;
-        } else {
-            ItemStack cp = ItemAndBlockHolder.PATTERN.stack();
-            cp.setTagCompound(stack.getTagCompound());
-            fluidDetails = (FluidPatternDetails) ItemAndBlockHolder.PATTERN
-                .getPatternForItem(cp, this.getInventoryPlayer().player.worldObj);
+    private void encodeProcessingPattern(ICraftingPatternDetails details, IAEStack<?>[] in, IAEStack<?>[] out,
+        int slot) {
+        NBTTagCompound data = PatternStackCodec
+            .processingData(in, out, details.canSubstitute(), details.canBeSubstitute());
+        if (data == null) return;
+        ItemStack pattern = AEApi.instance()
+            .definitions()
+            .items()
+            .encodedUltimatePattern()
+            .maybeStack(1)
+            .orNull();
+        if (pattern == null) return;
+        pattern.setTagCompound(data);
+        stampAuthor(pattern);
+        if (((ICraftingPatternItem) pattern.getItem())
+            .getPatternForItem(pattern, this.getInventoryPlayer().player.worldObj) != null) {
+            patterns.setInventorySlotContents(slot, pattern);
         }
-        fluidDetails.setInputs(in);
-        fluidDetails.setOutputs(out);
-        ItemStack pattern = fluidDetails.writeToStack();
-        patterns.setInventorySlotContents(slot, stampAuthor(pattern));
     }
 
     protected ItemStack stampAuthor(ItemStack patternStack) {
@@ -183,79 +170,44 @@ public class ContainerPatternModifier extends AEBaseContainer implements IPatter
         return patternStack;
     }
 
-    private void encode(ICraftingPatternDetails cpi, IAEItemStack[] in, IAEItemStack[] out, int slot) {
+    private void encode(ICraftingPatternDetails cpi, IAEStack<?>[] in, IAEStack<?>[] out, int slot) {
         NBTTagList inList = list2tagList(in);
         NBTTagList outList = list2tagList(out);
+        if (inList == null || outList == null) return;
         NBTTagCompound tag = (NBTTagCompound) Platform.openNbtData(cpi.getPattern())
             .copy();
+        tag.removeTag("InvalidPattern");
         tag.setTag("in", inList);
         tag.setTag("out", outList);
         ItemStack cp = encodePattern.copy();
         cp.setTagCompound(tag);
-        patterns.setInventorySlotContents(slot, cp);
+        if (((ICraftingPatternItem) cp.getItem()).getPatternForItem(cp, this.getInventoryPlayer().player.worldObj)
+            != null) {
+            patterns.setInventorySlotContents(slot, cp);
+        }
     }
 
-    private NBTTagList list2tagList(IAEItemStack[] list) {
+    private NBTTagList list2tagList(IAEStack<?>[] list) {
         NBTTagList nbtTagList = new NBTTagList();
-        for (IAEItemStack is : list) {
+        for (IAEStack<?> is : list) {
             if (is == null) {
                 nbtTagList.appendTag(new NBTTagCompound());
             } else {
-                nbtTagList.appendTag(createItemTag(is.getItemStack()));
+                if (!(is instanceof IAEItemStack item)) return null;
+                nbtTagList.appendTag(createItemTag(item.getItemStack()));
             }
         }
         return nbtTagList;
     }
 
-    private boolean isSameItem(ItemStack stack1, ItemStack stack2) {
-        if (Util.isFluidPacket(stack1) || Util.isFluidPacket(stack2)) {
-            FluidStack fs1 = StackInfo.getFluid(stack1);
-            FluidStack fs2 = StackInfo.getFluid(stack2);
-            if (fs1 != null && fs2 != null) {
-                return fs1.getFluid()
-                    .equals(fs2.getFluid());
-            }
-            return false;
-
-        } else {
-            return Platform.isSameItemPrecise(stack1, stack2);
-        }
-    }
-
-    private IAEItemStack[] replacePattern(IAEItemStack[] list, ItemStack source, ItemStack target,
+    private IAEStack<?>[] replacePattern(IAEStack<?>[] list, IAEStack<?> source, IAEStack<?> target,
         ICraftingPatternDetails details) {
-        IAEItemStack[] results = new IAEItemStack[list.length];
-        for (int i = 0; i < list.length; i++) {
-            IAEItemStack item = list[i];
-            if (item == null) {
-                results[i] = null;
-                continue;
-            }
-            if (isSameItem(item.getItemStack(), source)) {
-                if ((details.isCraftable() && target != null
-                    && details.isValidItemForSlot(i, target, this.getPlayerInv().player.worldObj))
-                    || (!details.isCraftable() && target != null)) {
-                    if (Util.isFluidPacket(target)) {
-                        IAEItemStack fluidDrop = ItemFluidDrop.newAeStack(ItemFluidPacket.getFluidStack(target));
-                        if (fluidDrop != null) {
-                            fluidDrop.setStackSize(item.getStackSize());
-                        }
-                        results[i] = fluidDrop;
-                        continue;
-                    }
-                    IAEItemStack t = AEItemStack.create(target);
-                    t.setStackSize(item.getStackSize());
-                    results[i] = t;
-                } else if (target == null && !details.isCraftable()) {
-                    results[i] = null;
-                } else {
-                    results[i] = item;
-                }
-            } else {
-                results[i] = item;
-            }
-        }
-        return results;
+        return PatternModifierStacks.replace(
+            list,
+            source,
+            target,
+            slot -> !details.isCraftable() || target instanceof IAEItemStack item
+                && details.isValidItemForSlot(slot, item.getItemStack(), this.getPlayerInv().player.worldObj));
     }
 
     protected NBTBase createItemTag(final ItemStack i) {

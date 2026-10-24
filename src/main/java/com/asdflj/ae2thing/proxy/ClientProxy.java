@@ -24,7 +24,6 @@ import com.asdflj.ae2thing.api.adapter.terminal.item.WCTWirelessCraftingTerminal
 import com.asdflj.ae2thing.api.adapter.terminal.parts.AETerminal;
 import com.asdflj.ae2thing.client.event.AEGuiCloseEvent;
 import com.asdflj.ae2thing.client.event.CraftTracking;
-import com.asdflj.ae2thing.client.event.EncodeEvent;
 import com.asdflj.ae2thing.client.event.GuiOverlayButtonEvent;
 import com.asdflj.ae2thing.client.event.NotificationEvent;
 import com.asdflj.ae2thing.client.event.OpenTerminalEvent;
@@ -34,7 +33,6 @@ import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.GuiCraftingTerminal;
 import com.asdflj.ae2thing.client.gui.GuiInfusionPatternTerminal;
 import com.asdflj.ae2thing.client.gui.GuiWirelessDualInterfaceTerminal;
-import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.render.BlockPosHighlighter;
 import com.asdflj.ae2thing.client.render.Notification;
 import com.asdflj.ae2thing.common.item.ItemPhial;
@@ -45,7 +43,6 @@ import com.asdflj.ae2thing.loader.ListenerLoader;
 import com.asdflj.ae2thing.loader.RenderLoader;
 import com.asdflj.ae2thing.nei.recipes.DefaultExtractorLoader;
 import com.asdflj.ae2thing.network.CPacketCraftRequest;
-import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.util.FindITUtil;
 
 import appeng.api.events.GuiScrollEvent;
@@ -203,36 +200,11 @@ public class ClientProxy extends CommonProxy {
         Ae2StuffIntegration.registerClientOverlayRenderer();
     }
 
-    private void placePattern() {
-        GuiScreen currentScreen = Minecraft.getMinecraft().currentScreen;
-        if (EncodeEvent.encode && getInterfaceHighlightEntry() != null
-            && currentScreen instanceof GuiBaseInterfaceWireless interfaceWireless) {
-            ContainerWirelessDualInterfaceTerminal container = (ContainerWirelessDualInterfaceTerminal) interfaceWireless.inventorySlots;
-            if (container.getContainer()
-                .getPatternOutputSlot()
-                .getHasStack()) {
-                AE2Thing.proxy.netHandler.sendToServer(
-                    new CPacketTerminalBtns(
-                        "InterfaceTerminal.PlacePattern",
-                        getInterfaceHighlightEntry().slot,
-                        getInterfaceHighlightEntry().getDimensionalCoordSide()));
-                EncodeEvent.encode = false;
-                setInterfaceHighlightEntry(null);
-            }
-        }
-    }
-
     @SubscribeEvent
     public void tickEvent(TickEvent.PlayerTickEvent event) {
         AE2ThingAPI.instance()
             .getPinned()
             .updateCraftingItems();
-        placePattern();
-    }
-
-    @SubscribeEvent
-    public void encodeEvent(EncodeEvent event) {
-        EncodeEvent.encode = true;
     }
 
     @SubscribeEvent
@@ -279,7 +251,9 @@ public class ClientProxy extends CommonProxy {
 
     @SubscribeEvent
     public void aeBaseGuiClose(AEGuiCloseEvent event) {
-
+        if (event.getGui() instanceof GuiBaseInterfaceWireless) {
+            setInterfaceHighlightEntry(null);
+        }
     }
 
     @SubscribeEvent
@@ -324,6 +298,7 @@ public class ClientProxy extends CommonProxy {
 
     @SubscribeEvent
     public void ClientDisconnectionFromServerEvent(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
+        setInterfaceHighlightEntry(null);
         AE2ThingAPI.instance()
             .getPinned()
             .clear();

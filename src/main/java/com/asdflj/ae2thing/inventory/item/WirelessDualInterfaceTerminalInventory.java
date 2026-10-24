@@ -1,8 +1,5 @@
 package com.asdflj.ae2thing.inventory.item;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -15,9 +12,9 @@ import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.ItemBiggerAppEngInventory;
 import com.asdflj.ae2thing.inventory.ItemPatternRefillInventory;
 import com.asdflj.ae2thing.inventory.ItemPatternsInventory;
+import com.asdflj.ae2thing.util.PatternStackCodec;
+import com.asdflj.ae2thing.util.TerminalTypeFilters;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.common.item.ItemFluidDrop;
-import com.glodblock.github.common.item.ItemFluidPacket;
 
 import appeng.api.config.Settings;
 import appeng.api.config.SortDir;
@@ -27,9 +24,11 @@ import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.events.MENetworkBootingStatusChange;
+import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.parts.IInterfaceTerminal;
 import appeng.api.storage.ITerminalTypeFilterProvider;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IAEStackType;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
@@ -37,7 +36,6 @@ import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.tile.inventory.IAEAppEngInventory;
 import appeng.tile.inventory.InvOperation;
 import appeng.util.ConfigManager;
-import appeng.util.MonitorableTypeFilter;
 import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
 
@@ -52,12 +50,12 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     protected boolean craftingMode = false;
     protected boolean substitute = false;
     protected boolean combine = false;
-    protected boolean prioritize = false;
     protected boolean inverted = false;
     protected boolean beSubstitute = false;
     protected int activePage = 0;
     private Util.DimensionalCoordSide tile;
-    private final MonitorableTypeFilter typeFilters = new MonitorableTypeFilter();
+    private final TerminalTypeFilters typeFilters = new TerminalTypeFilters();
+    private boolean updateRequired;
 
     public WirelessDualInterfaceTerminalInventory(WirelessObject obj) {
         super(obj);
@@ -96,7 +94,6 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
         this.setSubstitution(data.getBoolean("substitute"));
         this.setCombineMode(data.getBoolean("combine"));
         this.setBeSubstitute(data.getBoolean("beSubstitute"));
-        this.setPrioritization(data.getBoolean("priorization"));
         this.setInverted(data.getBoolean("inverted"));
         this.setActivePage(data.getInteger("activePage"));
         this.setCraftingRecipe(data.getBoolean("craftingMode"));
@@ -177,11 +174,6 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     }
 
     @Override
-    public void setPrioritization(boolean canPrioritize) {
-        this.prioritize = canPrioritize;
-    }
-
-    @Override
     public void setInverted(boolean inverted) {
         this.inverted = inverted;
     }
@@ -218,43 +210,8 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
     }
 
     @Override
-    public boolean isPrioritize() {
-        return this.prioritize;
-    }
-
-    @Override
     public boolean isSubstitution() {
         return this.substitute;
-    }
-
-    @Override
-    public void sortCraftingItems() {
-        List<ItemStack> items = new ArrayList<>();
-        List<ItemStack> fluids = new ArrayList<>();
-        for (ItemStack is : this.craftingEx) {
-            if (is == null) continue;
-            if (is.getItem() instanceof ItemFluidPacket) {
-                fluids.add(is);
-            } else {
-                items.add(is);
-            }
-        }
-        if (this.prioritize) {
-            fluids.addAll(items);
-            items.clear();
-        } else {
-            items.addAll(fluids);
-            fluids.clear();
-        }
-
-        for (int i = 0; i < this.craftingEx.getSizeInventory(); i++) {
-            if (this.craftingEx.getStackInSlot(i) == null) break;
-            if (items.isEmpty()) {
-                this.craftingEx.setInventorySlotContents(i, fluids.get(i));
-            } else {
-                this.craftingEx.setInventorySlotContents(i, items.get(i));
-            }
-        }
     }
 
     @Override
@@ -283,17 +240,18 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
                     .getPatternForItem(is, this.getActionableNode().getWorld());
 
                 if (details != null) {
-                    final IAEItemStack[] inItems = details.getInputs();
-                    final IAEItemStack[] outItems = details.getOutputs();
+                    final IAEStack<?>[] inItems = details.getAEInputs();
+                    final IAEStack<?>[] outItems = java.util.Arrays.stream(details.getAEOutputs())
+                        .filter(java.util.Objects::nonNull).toArray(IAEStack<?>[]::new);
                     this.setCraftingRecipe(details.isCraftable());
                     int inputsCount = 0;
                     int outputCount = 0;
-                    for (IAEItemStack inItem : inItems) {
+                    for (IAEStack<?> inItem : inItems) {
                         if (inItem != null) {
                             inputsCount++;
                         }
                     }
-                    for (IAEItemStack outItem : outItems) {
+                    for (IAEStack<?> outItem : outItems) {
                         if (outItem != null) {
                             outputCount++;
                         }
@@ -318,37 +276,18 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
                     }
 
                     for (int i = 0; i < getCraftingInternalInventory().getSizeInventory() && i < inItems.length; i++) {
-                        final IAEItemStack item = inItems[i];
-                        if (item != null) {
-                            if (item.getItem() instanceof ItemFluidDrop && !this.isCraftingRecipe()) {
-                                ItemStack packet = ItemFluidPacket
-                                    .newStack(ItemFluidDrop.getFluidStack(item.getItemStack()));
-                                getCraftingInternalInventory().setInventorySlotContents(i, packet);
-                            } else getCraftingInternalInventory().setInventorySlotContents(i, item.getItemStack());
-                        }
+                        getCraftingInternalInventory()
+                            .setInventorySlotContents(i, PatternStackCodec.toTerminalStack(inItems[i]));
                     }
 
                     if (inverted) {
                         for (int i = 0; i < this.outputEx.getSizeInventory() && i < outItems.length; i++) {
-                            final IAEItemStack item = outItems[i];
-                            if (item != null) {
-                                if (item.getItem() instanceof ItemFluidDrop) {
-                                    ItemStack packet = ItemFluidPacket
-                                        .newStack(ItemFluidDrop.getFluidStack(item.getItemStack()));
-                                    this.outputEx.setInventorySlotContents(i, packet);
-                                } else this.outputEx.setInventorySlotContents(i, item.getItemStack());
-                            }
+                            this.outputEx.setInventorySlotContents(i, PatternStackCodec.toTerminalStack(outItems[i]));
                         }
                     } else {
                         for (int i = 0; i < outItems.length && i < 8; i++) {
-                            final IAEItemStack item = outItems[i];
-                            if (item != null) {
-                                if (item.getItem() instanceof ItemFluidDrop) {
-                                    ItemStack packet = ItemFluidPacket
-                                        .newStack(ItemFluidDrop.getFluidStack(item.getItemStack()));
-                                    this.outputEx.setInventorySlotContents(i >= 4 ? 12 + i : i, packet);
-                                } else this.outputEx.setInventorySlotContents(i >= 4 ? 12 + i : i, item.getItemStack());
-                            }
+                            this.outputEx.setInventorySlotContents(
+                                i >= 4 ? 12 + i : i, PatternStackCodec.toTerminalStack(outItems[i]));
                         }
                     }
                 }
@@ -365,12 +304,17 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
 
     private void fixCraftingRecipes() {
         if (this.craftingMode) {
+            boolean changed = false;
             for (int x = 0; x < this.crafting.getSizeInventory(); x++) {
                 final ItemStack is = this.crafting.getStackInSlot(x);
                 if (is != null) {
-                    is.stackSize = 1;
+                    if (is.stackSize != 1) {
+                        is.stackSize = 1;
+                        changed = true;
+                    }
                 }
             }
+            if (changed) this.crafting.markDirty();
         }
     }
 
@@ -380,14 +324,9 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
         data.setBoolean("substitute", this.substitute);
         data.setBoolean("combine", this.combine);
         data.setBoolean("beSubstitute", this.beSubstitute);
-        data.setBoolean("priorization", this.prioritize);
+        data.removeTag("priorization");
         data.setBoolean("inverted", this.inverted);
         data.setInteger("activePage", this.activePage);
-        this.craftingEx.markDirty();
-        this.outputEx.markDirty();
-        this.upgrades.markDirty();
-        this.pattern.markDirty();
-        this.crafting.markDirty();
         NBTTagCompound tileMsg = new NBTTagCompound();
         if (tile != null) {
             tile.writeToNBT(tileMsg);
@@ -409,12 +348,22 @@ public class WirelessDualInterfaceTerminalInventory extends WirelessTerminal imp
 
     @Override
     public boolean needsUpdate() {
-        return true;
+        boolean result = this.updateRequired;
+        this.updateRequired = false;
+        return result;
+    }
+
+    @MENetworkEventSubscribe
+    public void onNetworkBootingChanged(MENetworkBootingStatusChange event) {
+        if (!event.isBooting) {
+            this.updateRequired = true;
+        }
     }
 
     @Override
     public Reference2BooleanMap<IAEStackType<?>> getTypeFilter(EntityPlayer player) {
-        return this.typeFilters.getFilters(player);
+        return this.typeFilters.getFilters(player)
+            .getFiltersMap();
     }
 
     @Override

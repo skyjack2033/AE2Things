@@ -10,7 +10,6 @@ import net.minecraft.inventory.ICrafting;
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.common.storage.RefreshableStorageMonitor;
 import com.asdflj.ae2thing.network.SPacketMEItemInvUpdate;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.AEApi;
 import appeng.api.networking.security.BaseActionSource;
@@ -28,7 +27,6 @@ public class ItemMonitor implements IMEMonitorHandlerReceiver<IAEItemStack>, IPr
         .storage()
         .createItemList();
     private final List<ICrafting> crafters;
-    private FluidMonitor fluidMonitorObject = null;
 
     public ItemMonitor(List<ICrafting> crafters) {
         this.crafters = crafters;
@@ -36,10 +34,6 @@ public class ItemMonitor implements IMEMonitorHandlerReceiver<IAEItemStack>, IPr
 
     public void setMonitor(IMEMonitor<IAEItemStack> itemMonitor) {
         this.itemMonitor = itemMonitor;
-    }
-
-    public void setFluidMonitorObject(FluidMonitor objectMonitor) {
-        this.fluidMonitorObject = objectMonitor;
     }
 
     @Override
@@ -69,12 +63,6 @@ public class ItemMonitor implements IMEMonitorHandlerReceiver<IAEItemStack>, IPr
         }
     }
 
-    private void fluidHandler(IAEItemStack send) {
-        if (this.fluidMonitorObject != null && send.getStackSize() == 0 && send.getItem() instanceof ItemFluidDrop) {
-            this.fluidMonitorObject.addItemCraftingFluid(send);
-        }
-    }
-
     @Override
     public void processItemList() {
         IItemList<IAEItemStack> monitorCache = null;
@@ -89,7 +77,6 @@ public class ItemMonitor implements IMEMonitorHandlerReceiver<IAEItemStack>, IPr
             for (final IAEItemStack is : this.items) {
                 IAEItemStack send = monitorCache.findPrecise(is);
                 if (send != null) {
-                    fluidHandler(send.copy());
                     toSend.add(send);
                 } else {
                     is.setStackSize(0);
@@ -115,7 +102,6 @@ public class ItemMonitor implements IMEMonitorHandlerReceiver<IAEItemStack>, IPr
                 : this.itemMonitor.getStorageList();
             List<IAEItemStack> toSend = new ArrayList<>();
             for (final IAEItemStack is : monitorCache) {
-                fluidHandler(is.copy());
                 toSend.add(is);
             }
             SPacketMEItemInvUpdate piu = new SPacketMEItemInvUpdate();

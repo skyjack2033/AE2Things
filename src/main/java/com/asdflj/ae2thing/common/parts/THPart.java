@@ -20,6 +20,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 import com.asdflj.ae2thing.inventory.InventoryHandler;
 import com.asdflj.ae2thing.inventory.gui.GuiType;
 import com.asdflj.ae2thing.util.BlockPos;
+import com.asdflj.ae2thing.util.TerminalTypeFilters;
 import com.glodblock.github.client.textures.FCPartsTexture;
 import com.glodblock.github.util.Util;
 
@@ -52,7 +53,6 @@ import appeng.tile.inventory.IAEAppEngInventory;
 import appeng.tile.inventory.InvOperation;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
-import appeng.util.MonitorableTypeFilter;
 import appeng.util.Platform;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -72,7 +72,7 @@ public abstract class THPart extends AEBasePart implements IPowerChannelState, I
 
     private final IConfigManager cm = new ConfigManager(this);
     private final AppEngInternalInventory viewCell = new AppEngInternalInventory(this, 5);
-    private final MonitorableTypeFilter typeFilters = new MonitorableTypeFilter();
+    private final TerminalTypeFilters typeFilters = new TerminalTypeFilters();
 
     public THPart(final ItemStack is) {
         this(is, false);
@@ -162,7 +162,8 @@ public abstract class THPart extends AEBasePart implements IPowerChannelState, I
 
     @Override
     public Reference2BooleanMap<IAEStackType<?>> getTypeFilter(EntityPlayer player) {
-        return this.typeFilters.getFilters(player);
+        return this.typeFilters.getFilters(player)
+            .getFiltersMap();
     }
 
     @Override

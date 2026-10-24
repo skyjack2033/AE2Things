@@ -1,9 +1,9 @@
 package com.asdflj.ae2thing.client.gui.container;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -14,9 +14,10 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.util.Constants.NBT;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidContainerRegistry;
 import net.minecraftforge.fluids.FluidStack;
@@ -24,20 +25,29 @@ import net.minecraftforge.fluids.IFluidContainerItem;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
 import com.asdflj.ae2thing.client.gui.container.widget.IWidgetPatternContainer;
 import com.asdflj.ae2thing.client.gui.container.widget.PatternContainer;
 import com.asdflj.ae2thing.common.item.ItemPatternModifier;
 import com.asdflj.ae2thing.integration.Mods;
+import com.asdflj.ae2thing.integration.gtnl.AssemblerMatrixIntegration;
 import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.item.INetworkTerminal;
 import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
 import com.asdflj.ae2thing.util.Ae2Reflect;
 import com.asdflj.ae2thing.util.GTUtil;
+import com.asdflj.ae2thing.util.InterfacePatternInventory;
+import com.asdflj.ae2thing.util.InterfaceTerminalTarget;
+import com.asdflj.ae2thing.util.PatternUpload;
 import com.glodblock.github.common.item.ItemFluidPacket;
 import com.glodblock.github.util.Util;
 
+import appeng.api.AEApi;
+import appeng.api.config.SecurityPermissions;
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
@@ -59,14 +69,16 @@ import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInterfaceTerminalUpdate;
 import appeng.helpers.IContainerCraftingPacket;
+import appeng.helpers.IInterfaceHost;
 import appeng.helpers.InventoryAction;
 import appeng.me.cache.CraftingGridCache;
 import appeng.me.helpers.ChannelPowerSrc;
+import appeng.parts.p2p.PartP2PTunnel;
 import appeng.tile.inventory.InvOperation;
-import appeng.tile.networking.TileCableBus;
 import appeng.util.PatternMultiplierHelper;
 import appeng.util.Platform;
-import codechicken.nei.recipe.StackInfo;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     implements IContainerCraftingPacket, IWidgetPatternContainer, IConfigurableObject {
@@ -92,9 +104,6 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     @GuiSync(92)
     public int activePage = 0;
 
-    @GuiSync(91)
-    public boolean prioritize = false;
-
     private final IPatternTerminal it;
 
     public ContainerWirelessDualInterfaceTerminal(InventoryPlayer ip, ITerminalHost monitorable) {
@@ -113,6 +122,15 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         }
     }
 
+    @SideOnly(Side.CLIENT)
+    public void updateInterfaceRecipeMaps(int windowId, Map<Long, Set<String>> recipeMaps) {
+        if (this.windowId == windowId && getGui() instanceof GuiBaseInterfaceWireless gui
+            && gui.inventorySlots == this) {
+            // NEI can temporarily replace currentScreen while this terminal and its container stay open.
+            gui.updateRecipeMaps(windowId, recipeMaps);
+        }
+    }
+
     @Override
     void setMonitor() {
         if (this.host instanceof INetworkTerminal) {
@@ -121,11 +139,14 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
                 this.networkNode = node;
                 final IGrid g = node.getGrid();
                 if (g != null) {
-                    this.setPowerSource(new ChannelPowerSrc(this.networkNode, g.getCache(IEnergyGrid.class)));
+                    // Wireless terminals own their power source. Keep the terminal here so an installed
+                    // infinity energy card also applies to monitor actions and pattern uploads.
+                    if (!(this.host instanceof WirelessTerminal)) {
+                        this.setPowerSource(new ChannelPowerSrc(this.networkNode, g.getCache(IEnergyGrid.class)));
+                    }
                     IStorageGrid storageGrid = g.getCache(IStorageGrid.class);
                     this.monitor.setMonitor(storageGrid.getItemInventory());
-                    this.fluidMonitor.setMonitor(storageGrid.getFluidInventory(), storageGrid.getItemInventory());
-                    this.monitor.setFluidMonitorObject(this.fluidMonitor);
+                    this.fluidMonitor.setMonitor(storageGrid.getFluidInventory());
                     if (this.monitor.getMonitor() == null) {
                         this.setValidContainer(false);
                     } else {
@@ -183,10 +204,18 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     @Override
     public void doAction(final EntityPlayerMP player, final InventoryAction action, final int slotId, final long id) {
         try {
-            if (id >= 0) {
-                delegateContainer.doAction(player, action, slotId, id);
+            // Programmable Hatch covers use the sign bit in otherwise valid native tracker IDs.
+            if (id != -1 && id != -2) {
+                if (!canEditInterfaces()) return;
+                if (action == InventoryAction.MOVE_REGION) CraftingGridCache.pauseRebuilds();
+                try {
+                    delegateContainer.doAction(player, action, slotId, id);
+                } finally {
+                    if (action == InventoryAction.MOVE_REGION) CraftingGridCache.unpauseRebuilds();
+                }
             } else if (id == -1) {
                 Slot s = this.inventorySlots.get(slotId);
+                if (s == null) return;
                 if (((s instanceof SlotPatternFake) || (s instanceof SlotFakeCraftingMatrix)
                     || (s instanceof SlotPatternTerm))) {
                     if (action == InventoryAction.MOVE_REGION) {
@@ -279,32 +308,46 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
     }
 
     private ImmutablePair<World, IInterfaceViewable> getWorldAndHost(NBTTagCompound tag) {
-        Util.DimensionalCoordSide intMsg = Util.DimensionalCoordSide.readFromNBT(tag);
-        World w = DimensionManager.getWorld(intMsg.getDimension());
-        if (w == null) return null;
-        TileEntity tile = w.getTileEntity(intMsg.x, intMsg.y, intMsg.z);
-        IInterfaceViewable host;
-        if (tile instanceof TileCableBus) {
-            Object part = ((TileCableBus) tile).getPart(intMsg.getSide());
-            if (!(part instanceof IInterfaceViewable viewable)) return null;
-            host = viewable;
-        } else if (tile instanceof IInterfaceViewable iv) {
-            host = iv;
-        } else if ((Mods.isLegacyGt5Loaded() || Mods.isGt5UnofficialLoaded())) {
-            host = GTUtil.getIInterfaceViewable(tile);
-            if (host == null) return null;
-        } else {
-            return null;
+        if (!canEditInterfaces()) return null;
+        IInterfaceViewable host = InterfaceTerminalTarget.resolve(Ae2Reflect.getTracked(this.delegateContainer), tag);
+        if (host == null || !isVisibleInterface(host)) {
+            this.delegateContainer.scheduleUpdate();
+            this.delegateContainer.detectAndSendChanges();
+            host = InterfaceTerminalTarget.resolve(Ae2Reflect.getTracked(this.delegateContainer), tag);
         }
-        if (!Ae2Reflect.getTracked(this.delegateContainer)
-            .containsKey(host)) return null;
+        if (host == null || !isVisibleInterface(host)) return null;
+        ForgeDirection side = Util.DimensionalCoordSide.readFromNBT(tag)
+            .getSide();
+        IGridNode node = host.getGridNode(side);
+        if (node == null) node = host.getGridNode(ForgeDirection.UNKNOWN);
+        if (node == null || !node.isActive()) return null;
+        World w = DimensionManager.getWorld(
+            host.getLocation()
+                .getDimension());
+        if (w == null || !w.blockExists(host.getLocation().x, host.getLocation().y, host.getLocation().z)) return null;
         return ImmutablePair.of(w, host);
     }
 
+    private boolean canEditInterfaces() {
+        IGridNode node = ((IInterfaceTerminal) this.it).getActionableNode();
+        return this.isValidContainer() && node != null
+            && node.isActive()
+            && this.hasAccess(SecurityPermissions.BUILD, true);
+    }
+
+    private static boolean isVisibleInterface(IInterfaceViewable host) {
+        if (host instanceof PartP2PTunnel<?>tunnel && tunnel.isOutput()) return false;
+        return host instanceof IInterfaceHost interfaceHost ? interfaceHost.getInterfaceDuality()
+            .getConfigManager()
+            .getSetting(Settings.INTERFACE_TERMINAL) == YesNo.YES : host.shouldDisplay();
+    }
+
     private void doublePatterns(int val, World w, IInterfaceViewable host) {
-        IInventory patterns = host.getPatterns();
+        IInventory patterns = InterfacePatternInventory.getPatterns(host);
         boolean fast = (val & 1) != 0;
         boolean backwards = (val & 2) != 0;
+        List<Integer> changedSlots = new ArrayList<>();
+        InterfacePatternInventory.Batch batch = InterfacePatternInventory.beginBatch(host);
         CraftingGridCache.pauseRebuilds();
         try {
             for (int i = 0; i < patterns.getSizeInventory(); i++) {
@@ -319,43 +362,69 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
                             PatternMultiplierHelper
                                 .applyModification(copy, (fast ? Math.min(3, max) : 1) * (backwards ? -1 : 1));
                             patterns.setInventorySlotContents(i, copy);
+                            changedSlots.add(i);
                         }
                     }
                 }
             }
-        } catch (Throwable ignored) {}
-        CraftingGridCache.unpauseRebuilds();
-        this.sendToClient(host);
+        } catch (Throwable ignored) {} finally {
+            try {
+                InterfacePatternInventory.endBatch(batch, !changedSlots.isEmpty());
+            } finally {
+                CraftingGridCache.unpauseRebuilds();
+            }
+        }
+        if (changedSlots.isEmpty()) return;
+        InterfacePatternInventory.notifyPatternChange(host);
+        this.sendToClient(
+            host,
+            changedSlots.stream()
+                .mapToInt(Integer::intValue)
+                .toArray());
     }
 
-    private void sendToClient(IInterfaceViewable host) {
-        PacketInterfaceTerminalUpdate update = new PacketInterfaceTerminalUpdate();
-        Map map = Ae2Reflect.getTracked(this.delegateContainer);
-        Object o = map.get(host);
-        if (o == null) return;
+    private void sendToClient(IInterfaceViewable host, int... changedSlots) {
+        Long id = InterfaceTerminalTarget.getId(Ae2Reflect.getTracked(this.delegateContainer), host);
+        if (id == null) return;
         try {
-            Field f = o.getClass()
-                .getDeclaredField("id");
-            f.setAccessible(true);
-            long id = (long) f.get(o);
-            Method m = o.getClass()
-                .getDeclaredMethod("updateNBT");
-            m.setAccessible(true);
-            m.invoke(o);
-            Field f1 = o.getClass()
-                .getDeclaredField("invNbt");
-            f1.setAccessible(true);
-            NBTTagList tag = (NBTTagList) f1.get(o);
-            int[] size = new int[host.rowSize() * host.rows()];
-            for (int i = 0; i < size.length; i++) {
-                size[i] = i;
+            IInventory patterns = InterfacePatternInventory.getPatterns(host);
+            Object tracker = Ae2Reflect.getTracked(this.delegateContainer)
+                .get(host);
+            int slots = Math.min(InterfacePatternInventory.getSlotCount(host), patterns.getSizeInventory());
+            NBTTagList items = new NBTTagList();
+            if (changedSlots.length == 0) {
+                for (int i = 0; i < slots; i++) {
+                    ItemStack stack = patterns.getStackInSlot(i);
+                    NBTTagCompound item = new NBTTagCompound();
+                    if (stack != null) stack.writeToNBT(item);
+                    items.appendTag(item);
+                }
+            } else {
+                for (int changedSlot : changedSlots) {
+                    if (changedSlot < 0 || changedSlot >= slots) return;
+                    if (tracker instanceof InterfacePatternInventory.Tracker snapshot) {
+                        items.appendTag(snapshot.ae2thing$updatePattern(changedSlot));
+                        continue;
+                    }
+                    ItemStack stack = patterns.getStackInSlot(changedSlot);
+                    NBTTagCompound item = new NBTTagCompound();
+                    if (stack != null) stack.writeToNBT(item);
+                    items.appendTag(item);
+                }
             }
-            update.addOverwriteEntry(id)
-                .setOnline(true)
-                .setItems(size, tag);
+            PacketInterfaceTerminalUpdate update = new PacketInterfaceTerminalUpdate();
+            PacketInterfaceTerminalUpdate.PacketOverwrite overwrite = update.addOverwriteEntry(id);
+            if (changedSlots.length == 0) {
+                overwrite.setSize(InterfacePatternInventory.getRows(host), host.rowSize(), slots);
+                overwrite.setItems(new int[0], items);
+            } else {
+                overwrite.setItems(changedSlots, items);
+            }
             update.encode();
             NetworkHandler.instance.sendTo(update, (EntityPlayerMP) this.getPlayerInv().player);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            AELog.error(e);
+        }
     }
 
     @Override
@@ -424,6 +493,10 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
         return this.craftingMode;
     }
 
+    public boolean allowsInputSubstitution() {
+        return this.patternPanel.allowsInputSubstitution();
+    }
+
     public void setCrafting(boolean craftingMode) {
         this.craftingMode = craftingMode;
         this.it.setCraftingRecipe(craftingMode);
@@ -437,71 +510,149 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             int slot = val >> 2;
             boolean shift = (val & 1) != 0;
             boolean backwards = (val & 2) != 0;
-            if (!backwards) {
-                // inject all item to pattern modifier
-                injectPatternToPatternModifier(result.right, slot, shift);
-            } else {
-                extractPatternToInterface(result.right);
+            List<Integer> changedSlots = new ArrayList<>();
+            InterfacePatternInventory.Batch batch = InterfacePatternInventory.beginBatch(result.right);
+            if (shift || backwards) CraftingGridCache.pauseRebuilds();
+            try {
+                if (!backwards) {
+                    injectPatternToPatternModifier(result.right, slot, shift, changedSlots);
+                } else {
+                    extractPatternToInterface(result.right, changedSlots);
+                }
+            } finally {
+                try {
+                    InterfacePatternInventory.endBatch(batch, !changedSlots.isEmpty());
+                } finally {
+                    if (shift || backwards) CraftingGridCache.unpauseRebuilds();
+                }
             }
-            this.sendToClient(result.right);
+            if (changedSlots.isEmpty()) return;
+            InterfacePatternInventory.notifyPatternChange(result.right);
+            this.sendToClient(
+                result.right,
+                changedSlots.stream()
+                    .mapToInt(Integer::intValue)
+                    .toArray());
         }
     }
 
-    private void extractPatternToInterface(IInterfaceViewable host) {
+    private boolean extractPatternToInterface(IInterfaceViewable host, List<Integer> changedSlots) {
         PatternModifierInventory patternModifierInventory = new PatternModifierInventory(
             this.player.inventory.getItemStack(),
             -1,
             player);
-        patternModifierInventory.extractToHost(host);
+        return patternModifierInventory.extractToHost(host, changedSlots);
     }
 
-    private void injectPatternToPatternModifier(IInterfaceViewable host, int slot, boolean shift) {
-        IInventory patterns = host.getPatterns();
-        if (!shift && ((slot < 0) || (slot >= patterns.getSizeInventory()))) return;
+    private boolean injectPatternToPatternModifier(IInterfaceViewable host, int slot, boolean shift,
+        List<Integer> changedSlots) {
+        IInventory patterns = InterfacePatternInventory.getPatterns(host);
+        if (!shift && ((slot < 0) || (slot >= patterns.getSizeInventory()))) return false;
         PatternModifierInventory patternModifierInventory = new PatternModifierInventory(
             this.player.inventory.getItemStack(),
             -1,
             player);
         if (shift) {
+            boolean changed = false;
             for (int i = 0; i < patterns.getSizeInventory(); i++) {
                 ItemStack pattern = patterns.getStackInSlot(i);
-                if (patternModifierInventory.injectItems(pattern)) {
-                    patterns.setInventorySlotContents(i, null);
-                } else {
+                if (pattern == null) continue;
+                if (!patternModifierInventory.injectItemsWithoutSave(pattern)) {
                     break;
                 }
+                patterns.setInventorySlotContents(i, null);
+                changedSlots.add(i);
+                changed = true;
             }
+            if (changed) patternModifierInventory.saveChanges();
+            return changed;
         } else {
-            if (patternModifierInventory.injectItems(patterns.getStackInSlot(slot))) {
+            ItemStack pattern = patterns.getStackInSlot(slot);
+            if (pattern != null && patternModifierInventory.injectItems(pattern)) {
                 patterns.setInventorySlotContents(slot, null);
+                changedSlots.add(slot);
+                return true;
             }
         }
-
+        return false;
     }
 
     public void PlacePattern(int slot, NBTTagCompound tag) {
         ImmutablePair<World, IInterfaceViewable> result = getWorldAndHost(tag);
         if (result == null) return;
-        IInventory patterns = result.right.getPatterns();
-        if ((slot < 0) || (slot >= patterns.getSizeInventory())) return;
-        ItemStack item = patterns.getStackInSlot(slot);
-        if (item != null) return;
-        if (!this.getContainer()
-            .getPatternOutputSlot()
-            .getHasStack()) return;
-        ItemStack pattern = this.getContainer()
-            .getPatternOutputSlot()
-            .getStack();
-        for (int i = 0; i < patterns.getSizeInventory(); i++) {
-            ItemStack slotStack = patterns.getStackInSlot(i);
-            if (StackInfo.equalItemAndNBT(slotStack, pattern, true)) {
-                return;
-            }
+        placePattern(slot, result.right);
+        this.saveChanges();
+        this.detectAndSendChanges();
+    }
+
+    public void encodeAndPlacePattern(int slot, NBTTagCompound tag) {
+        if (tag == null || !tag.hasKey("windowId", NBT.TAG_INT)
+            || tag.getInteger("windowId") != this.windowId
+            || !canEditInterfaces()) return;
+        ImmutablePair<World, IInterfaceViewable> result = getWorldAndHost(tag);
+        // If the selected hatch disappeared, still leave the newly encoded pattern in the terminal.
+        if (this.patternPanel.encodeForUpload() && result != null) {
+            placePattern(slot, result.right);
         }
-        patterns.setInventorySlotContents(slot, pattern);
-        this.getContainer()
-            .getPatternOutputSlot()
-            .putStack(null);
-        this.sendToClient(result.right);
+        this.patternPanel.refillBlankPatterns();
+        this.saveChanges();
+        this.detectAndSendChanges();
+    }
+
+    public void uploadToAssemblerMatrix(int windowId) {
+        if (windowId != this.windowId || !AssemblerMatrixIntegration.isAvailable()
+            || !this.it.isCraftingRecipe()
+            || !canEditInterfaces()) return;
+        IGridNode node = this.getNetworkNode();
+        if (node == null || !node.isActive() || node.getGrid() == null) return;
+        try {
+            Slot output = this.patternPanel.getPatternOutputSlot();
+            // The GTNL button uploads an existing pattern, or encodes the current recipe if the output is empty.
+            if (!output.getHasStack() && !this.patternPanel.encodeForUpload()) return;
+            ItemStack pattern = output.getStack();
+            if (pattern == null || pattern.stackSize <= 0) return;
+            ItemStack single = pattern.copy();
+            single.stackSize = 1;
+            AssemblerMatrixIntegration.Result result = AssemblerMatrixIntegration
+                .upload(node.getGrid(), single, this.player.worldObj);
+            if (result == AssemblerMatrixIntegration.Result.DUPLICATE) {
+                ItemStack blank = AEApi.instance()
+                    .definitions()
+                    .materials()
+                    .blankPattern()
+                    .maybeStack(pattern.stackSize)
+                    .orNull();
+                if (blank == null) return;
+                output.putStack(null);
+                this.dropItem(blank);
+                this.player
+                    .addChatMessage(new ChatComponentTranslation("gtnl.machine.assembler_matrix.pattern_exists"));
+            } else if (result == AssemblerMatrixIntegration.Result.UPLOADED) {
+                ItemStack remaining = pattern.stackSize == 1 ? null : pattern.copy();
+                if (remaining != null) remaining.stackSize--;
+                output.putStack(remaining);
+                this.delegateContainer.scheduleUpdate();
+            }
+        } finally {
+            this.patternPanel.refillBlankPatterns();
+            this.saveChanges();
+            this.detectAndSendChanges();
+        }
+    }
+
+    private void placePattern(int slot, IInterfaceViewable host) {
+        Slot output = this.patternPanel.getPatternOutputSlot();
+        if (output == null) return;
+        boolean uploaded = PatternUpload.moveToSlot(
+            output.inventory,
+            output.getSlotIndex(),
+            InterfacePatternInventory.getPatterns(host),
+            slot,
+            InterfacePatternInventory.getSlotCount(host));
+        if (uploaded) {
+            InterfacePatternInventory.notifyPatternChange(host);
+        }
+        // Also refresh after a rejected upload, e.g. when another player filled the selected slot.
+        this.sendToClient(host, slot);
     }
 }

@@ -39,6 +39,7 @@ import appeng.api.config.SearchBoxMode;
 import appeng.api.config.Settings;
 import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.client.ActionKey;
@@ -120,21 +121,54 @@ public abstract class BaseMEGui extends AEBaseGui implements IGuiSelection {
             || (Mods.HBM_AE_ADDON.isModLoaded() && HBMAeAddonUtil.getItemIsEmptyContainer(is, fs));
     }
 
+    /**
+     * Resolve both native AE fluid stacks and legacy item-backed fluid markers.
+     */
+    private IAEFluidStack getFluidFromItemOrDrop(IAEItemStack item) {
+        if (item == null) return null;
+        try {
+            if (item.getItem() instanceof ItemFluidDrop drop) {
+                return drop.getAeFluidStack(item);
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private IAEFluidStack getFluidFromStack(IAEStack<?> stack) {
+        if (stack instanceof IAEFluidStack fluid) return fluid;
+        if (stack instanceof IAEItemStack item) return getFluidFromItemOrDrop(item);
+        return null;
+    }
+
     @SideOnly(Side.CLIENT)
     public boolean updateFluidContainer(VirtualMESlot slot, int ctrlDown, int mouseButton) {
         final EntityPlayer player = Minecraft.getMinecraft().thePlayer;
         if (slot != null) {
             try {
                 ItemStack cs = player.inventory.getItemStack();
-                IAEItemStack item = slot.getAEStack() instanceof IAEItemStack ais ? ais : null;
-                IAEFluidStack fluid = slot.getAEStack() instanceof IAEFluidStack afs ? afs
-                    : item != null && item.getItem() instanceof ItemFluidDrop ? ItemFluidDrop.getAeFluidStack(item)
-                        : null;
+                IAEStack<?> stack = slot.getAEStack();
+                IAEFluidStack fluid = getFluidFromStack(stack);
+                // AE uses the pick-block button for AUTO_CRAFT, including fluids that also have
+                // a stored amount. Do not consume that click as a container extraction.
+                if (fluid != null && fluid.isCraftable() && mouseButton == CLICK_MODE_PICK_BLOCK) {
+                    return false;
+                }
                 if (fluid != null && fluid.getStackSize() != 0 && (cs == null || isEmptyContainer(cs, fluid))) {
                     AE2Thing.proxy.netHandler.sendToServer(new CPacketFluidUpdate(fluid, isShiftKeyDown()));
                     return true;
                 } else if (ctrlDown == 1 && isFilledContainer(cs)) {
                     AE2Thing.proxy.netHandler.sendToServer(new CPacketFluidUpdate(null, isShiftKeyDown()));
+                    return true;
+                }
+                // A zero-sized fluid stack is AE's craftable marker. Keep the marker click available
+                // for AUTO_CRAFT (normal click or pick-block), but still consume
+                // non-craftable/placement clicks so they cannot fall through as an item action with a
+                // null target stack.
+                if (fluid != null && fluid.getStackSize() == 0) {
+                    if (fluid.isCraftable()
+                        && (mouseButton == CLICK_MODE_NORMAL || mouseButton == CLICK_MODE_PICK_BLOCK)) {
+                        return false;
+                    }
                     return true;
                 }
                 if (fluid != null && mouseButton != 3) {

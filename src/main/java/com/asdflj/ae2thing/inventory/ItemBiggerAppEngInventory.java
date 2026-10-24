@@ -113,4 +113,8 @@ public class ItemBiggerAppEngInventory extends AppEngInternalInventory {
 
         this.markDirty();
     }
+
+    public void setInventorySlotContentsNoMarkDirty(int slot, ItemStack newItemStack) {
+        this.inv[slot] = newItemStack;
+    }
 }

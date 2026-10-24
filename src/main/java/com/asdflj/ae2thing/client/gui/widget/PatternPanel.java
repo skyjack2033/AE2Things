@@ -8,22 +8,25 @@ import static net.minecraft.client.gui.GuiScreen.isShiftKeyDown;
 import java.util.Set;
 
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.init.Blocks;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.common.MinecraftForge;
+import net.minecraft.nbt.NBTTagCompound;
 
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.api.InventoryActionExtend;
-import com.asdflj.ae2thing.client.event.EncodeEvent;
+import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
 import com.asdflj.ae2thing.client.gui.IWidgetGui;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
+import com.asdflj.ae2thing.integration.gtnl.AssemblerMatrixIntegration;
 import com.asdflj.ae2thing.network.CPacketInventoryActionExtend;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
+import com.asdflj.ae2thing.proxy.ClientProxy;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.Util;
@@ -58,8 +61,6 @@ public class PatternPanel implements IAEBasePanel {
     protected GuiImgButton encodeBtn;
     protected GuiImgButton substitutionsEnabledBtn;
     protected GuiImgButton substitutionsDisabledBtn;
-    protected GuiFCImgButton fluidPrioritizedEnabledBtn;
-    protected GuiFCImgButton fluidPrioritizedDisabledBtn;
     protected GuiImgButton invertBtn;
     protected GuiImgButton clearBtn;
     protected GuiImgButton doubleBtn;
@@ -69,6 +70,7 @@ public class PatternPanel implements IAEBasePanel {
     protected GuiFCImgButton combineDisableBtn;
     protected GuiTabButton tabProcessButton;
     protected GuiTabButton tabCraftButton;
+    private GuiTabButton uploadToMatrixBtn;
     protected final GuiScrollbar processingScrollBar = new GuiScrollbar();
     private final AEBaseContainer inventorySlots;
     protected final Set<Slot> drag_click;
@@ -101,16 +103,19 @@ public class PatternPanel implements IAEBasePanel {
 
     @Override
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
-        updateButton(this.substitutionsEnabledBtn, this.container.substitute);
-        updateButton(this.substitutionsDisabledBtn, !this.container.substitute);
+        boolean allowsSubstitution = this.container.allowsInputSubstitution();
+        boolean substitute = allowsSubstitution && this.container.substitute;
+        updateButton(this.substitutionsEnabledBtn, substitute);
+        updateButton(this.substitutionsDisabledBtn, !substitute);
+        this.substitutionsEnabledBtn.enabled = allowsSubstitution;
+        this.substitutionsDisabledBtn.enabled = allowsSubstitution;
         updateButton(this.combineEnableBtn, this.container.combine);
         updateButton(this.combineDisableBtn, !this.container.combine);
         updateButton(this.beSubstitutionsEnabledBtn, this.container.beSubstitute);
         updateButton(this.beSubstitutionsDisabledBtn, !this.container.beSubstitute);
-        updateButton(this.fluidPrioritizedEnabledBtn, this.container.prioritize);
-        updateButton(this.fluidPrioritizedDisabledBtn, !this.container.prioritize);
         updateButton(this.tabCraftButton, this.container.isCraftingMode());
         updateButton(this.tabProcessButton, !this.container.isCraftingMode());
+        updateButton(this.uploadToMatrixBtn, this.container.isCraftingMode());
         this.processingScrollBar.setVisible(!this.container.isCraftingMode());
         this.processingScrollBar.draw(this.parent);
     }
@@ -142,12 +147,6 @@ public class PatternPanel implements IAEBasePanel {
             beSubstitutionsDisabledBtn.xPosition = this.parent.getGuiLeft() + 291;
             beSubstitutionsDisabledBtn.yPosition = this.parent.getGuiTop() + 24;
 
-            fluidPrioritizedEnabledBtn.xPosition = -9000;
-            fluidPrioritizedEnabledBtn.yPosition = -9000;
-
-            fluidPrioritizedDisabledBtn.xPosition = -9000;
-            fluidPrioritizedDisabledBtn.yPosition = -9000;
-
             doubleBtn.xPosition = -9000;
             doubleBtn.yPosition = -9000;
 
@@ -176,12 +175,6 @@ public class PatternPanel implements IAEBasePanel {
 
             beSubstitutionsDisabledBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
             beSubstitutionsDisabledBtn.yPosition = this.parent.getGuiTop() + 69;
-
-            fluidPrioritizedEnabledBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
-            fluidPrioritizedEnabledBtn.yPosition = this.parent.getGuiTop() + 59;
-
-            fluidPrioritizedDisabledBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
-            fluidPrioritizedDisabledBtn.yPosition = this.parent.getGuiTop() + 59;
 
             doubleBtn.xPosition = this.parent.getGuiLeft() + 306 + offset;
             doubleBtn.yPosition = this.parent.getGuiTop() + 20;
@@ -226,6 +219,19 @@ public class PatternPanel implements IAEBasePanel {
                     new ItemStack(Blocks.crafting_table),
                     GuiText.CraftingPattern.getLocal(),
                     this.gui.getRenderItem()));
+        this.uploadToMatrixBtn = null;
+        if (AssemblerMatrixIntegration.isAvailable()) {
+            ItemStack icon = AssemblerMatrixIntegration.getIcon();
+            this.uploadToMatrixBtn = new GuiTabButton(
+                this.parent.getGuiLeft() + 248,
+                this.parent.getGuiTop() + 141,
+                icon == null ? new ItemStack(Blocks.crafting_table) : icon,
+                I18n.format("gtnl.gui.assembler_matrix.upload_pattern"),
+                this.gui.getRenderItem());
+            this.uploadToMatrixBtn.visible = this.container.isCraftingMode();
+            this.gui.getButtonList()
+                .add(this.uploadToMatrixBtn);
+        }
         this.substitutionsEnabledBtn = new GuiImgButton(
             this.parent.getGuiLeft() + 306,
             this.parent.getGuiTop() + 10,
@@ -243,24 +249,6 @@ public class PatternPanel implements IAEBasePanel {
         this.substitutionsDisabledBtn.setHalfSize(true);
         this.gui.getButtonList()
             .add(this.substitutionsDisabledBtn);
-
-        this.fluidPrioritizedEnabledBtn = new GuiFCImgButton(
-            this.parent.getGuiLeft() + 306,
-            this.parent.getGuiTop() + 59,
-            "FORCE_PRIO",
-            "DO_PRIO");
-        this.fluidPrioritizedEnabledBtn.setHalfSize(true);
-        this.gui.getButtonList()
-            .add(this.fluidPrioritizedEnabledBtn);
-
-        this.fluidPrioritizedDisabledBtn = new GuiFCImgButton(
-            this.parent.getGuiLeft() + 306,
-            this.parent.getGuiTop() + 59,
-            "NOT_PRIO",
-            "DONT_PRIO");
-        this.fluidPrioritizedDisabledBtn.setHalfSize(true);
-        this.gui.getButtonList()
-            .add(this.fluidPrioritizedDisabledBtn);
 
         this.invertBtn = new GuiImgButton(
             this.parent.getGuiLeft() + 296,
@@ -420,7 +408,13 @@ public class PatternPanel implements IAEBasePanel {
 
     @Override
     public boolean actionPerformed(GuiButton btn) {
-        if (this.tabCraftButton == btn || this.tabProcessButton == btn) {
+        if (this.uploadToMatrixBtn != null && this.uploadToMatrixBtn == btn) {
+            if (this.container.isCraftingMode()) {
+                AE2Thing.proxy.netHandler.sendToServer(
+                    new CPacketTerminalBtns("PatternTerminal.UploadToAssemblerMatrix", this.container.windowId));
+            }
+            return true;
+        } else if (this.tabCraftButton == btn || this.tabProcessButton == btn) {
             AE2Thing.proxy.netHandler.sendToServer(
                 new CPacketTerminalBtns(
                     "PatternTerminal.CraftMode",
@@ -428,23 +422,26 @@ public class PatternPanel implements IAEBasePanel {
             return true;
         } else if (this.encodeBtn == btn) {
             int value = (isCtrlKeyDown() ? 1 : 0) << 1 | (isShiftKeyDown() ? 1 : 0);
-            AE2Thing.proxy.netHandler.sendToServer(new CPacketTerminalBtns("PatternTerminal.Encode", value));
-            if (value == 0 && NEIClientUtils.altKey()) {
-                MinecraftForge.EVENT_BUS.post(new EncodeEvent(true));
+            GuiBaseInterfaceWireless.InterfaceWirelessEntryWrapper target = ClientProxy.getInterfaceHighlightEntry();
+            if (value == 0 && NEIClientUtils.altKey()
+                && this.parent instanceof GuiBaseInterfaceWireless terminal
+                && terminal.isCurrentHighlightEntry(target)) {
+                NBTTagCompound destination = target.getDimensionalCoordSide();
+                destination.setInteger("windowId", this.container.windowId);
+                AE2Thing.proxy.netHandler.sendToServer(
+                    new CPacketTerminalBtns("InterfaceTerminal.EncodeAndPlacePattern", target.slot, destination));
+                ClientProxy.setInterfaceHighlightEntry(null);
+            } else {
+                AE2Thing.proxy.netHandler.sendToServer(new CPacketTerminalBtns("PatternTerminal.Encode", value));
             }
             return true;
         } else if (this.clearBtn == btn) {
             AE2Thing.proxy.netHandler.sendToServer(new CPacketTerminalBtns("PatternTerminal.Clear", 1));
             return true;
         } else if (this.substitutionsEnabledBtn == btn || this.substitutionsDisabledBtn == btn) {
+            if (!this.container.allowsInputSubstitution()) return true;
             AE2Thing.proxy.netHandler.sendToServer(
                 new CPacketTerminalBtns("PatternTerminal.Substitute", this.substitutionsEnabledBtn == btn ? 0 : 1));
-            return true;
-        } else if (this.fluidPrioritizedEnabledBtn == btn || this.fluidPrioritizedDisabledBtn == btn) {
-            AE2Thing.proxy.netHandler.sendToServer(
-                new CPacketTerminalBtns(
-                    "PatternTerminal.Prioritize",
-                    isShiftKeyDown() ? 2 : (container.prioritize ? 0 : 1)));
             return true;
         } else if (this.invertBtn == btn) {
             AE2Thing.proxy.netHandler

@@ -16,7 +16,6 @@ import com.asdflj.ae2thing.client.gui.widget.IGuiMonitor;
 import com.asdflj.ae2thing.nei.AEItemOverlayState;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.storage.data.IAEItemStack;
@@ -25,6 +24,7 @@ import appeng.api.storage.data.IDisplayRepo;
 import appeng.api.storage.data.IItemList;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.me.ItemRepo;
+import appeng.util.item.AEFluidStack;
 import appeng.util.item.AEItemStack;
 import codechicken.nei.PositionedStack;
 import codechicken.nei.api.IOverlayHandler;
@@ -41,10 +41,8 @@ public interface MixinIOverlayHandler extends IOverlayHandler {
         final List<GuiOverlayButton.ItemOverlayState> itemPresenceSlots = new ArrayList<>();
         final List<PositionedStack> ingredients = recipe.getIngredientStacks(recipeIndex);
         IItemList<IAEStack<?>> list = null;
-        boolean displayFluid = false;
         if (firstGui instanceof IGuiMonitor gm) {
             list = Ae2ReflectClient.getList(gm.getRepo());
-            displayFluid = true;
         } else if (AE2ThingAPI.instance()
             .terminal()
             .isTerminal(firstGui)) {
@@ -76,18 +74,12 @@ public interface MixinIOverlayHandler extends IOverlayHandler {
                 boolean found = false;
                 boolean isCraftable = false;
                 FluidStack fs = StackInfo.getFluid(stack.item);
-                IAEItemStack item;
-                if (fs != null) {
-                    item = displayFluid ? AEItemStack.create(ItemFluidDrop.newDisplayStack(fs))
-                        : ItemFluidDrop.newAeStack(fs);
-                } else {
-                    item = AEItemStack.create(stack.item);
-                }
-                if (list.findPrecise(item) != null) {
+                IAEStack<?> item = fs == null ? AEItemStack.create(stack.item) : AEFluidStack.create(fs);
+                IAEStack<?> stored = item == null ? null : list.findPrecise(item);
+                if (stored != null) {
                     found = true;
-                    isCraftable = list.findPrecise(item)
-                        .isCraftable();
-                } else if (fs == null) {
+                    isCraftable = stored.isCraftable();
+                } else if (fs == null && item != null) {
                     for (IAEStack<?> is : list.findFuzzy(item, FuzzyMode.IGNORE_ALL)) {
                         if (is instanceof IAEItemStack ais && stack.contains(ais.getItemStack())) {
                             found = true;

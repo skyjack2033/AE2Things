@@ -12,6 +12,9 @@ import com.asdflj.ae2thing.common.item.ItemPhial;
 import com.asdflj.ae2thing.common.tile.TileInfusionInterface;
 
 import appeng.api.config.FuzzyMode;
+import appeng.api.config.InsertionMode;
+import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.util.InventoryAdaptor;
 import appeng.util.inv.IInventoryDestination;
 import appeng.util.inv.ItemSlot;
@@ -72,6 +75,19 @@ public class EssentiaInventoryAdaptor extends InventoryAdaptor {
     @Override
     public ItemStack simulateAdd(ItemStack toBeSimulated) {
         return adaptor.simulateAdd(toBeSimulated);
+    }
+
+    @Override
+    public IAEStack<?> addStack(IAEStack<?> toBeAdded, InsertionMode insertionMode) {
+        if (toBeAdded instanceof IAEItemStack item && item.getItem() instanceof ItemPhial) {
+            return super.addStack(toBeAdded, insertionMode);
+        }
+        return adaptor.addStack(toBeAdded, insertionMode);
+    }
+
+    @Override
+    public IAEStack<?> simulateAddStack(IAEStack<?> toBeSimulated, InsertionMode insertionMode) {
+        return adaptor.simulateAddStack(toBeSimulated, insertionMode);
     }
 
     @Override

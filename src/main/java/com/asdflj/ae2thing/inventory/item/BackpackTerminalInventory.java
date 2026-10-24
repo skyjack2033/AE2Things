@@ -11,6 +11,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import com.asdflj.ae2thing.api.Constants;
 import com.asdflj.ae2thing.common.storage.RefreshableStorageMonitor;
 import com.asdflj.ae2thing.inventory.ItemBiggerAppEngInventory;
+import com.asdflj.ae2thing.util.TerminalTypeFilters;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
@@ -37,7 +38,6 @@ import appeng.container.interfaces.IInventorySlotAware;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.ConfigManager;
 import appeng.util.IterationCounter;
-import appeng.util.MonitorableTypeFilter;
 import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
 
@@ -50,7 +50,7 @@ public class BackpackTerminalInventory extends MEMonitorHandler<IAEItemStack> im
     private final int inventorySlot;
     protected AppEngInternalInventory crafting;
     protected EntityPlayer player;
-    private final MonitorableTypeFilter typeFilters = new MonitorableTypeFilter();
+    private final TerminalTypeFilters typeFilters = new TerminalTypeFilters();
     private IItemList<IAEItemStack> lastExternalSnapshot;
     private int lastExternalRefreshTick = Integer.MIN_VALUE;
 
@@ -158,7 +158,8 @@ public class BackpackTerminalInventory extends MEMonitorHandler<IAEItemStack> im
 
     @Override
     public Reference2BooleanMap<IAEStackType<?>> getTypeFilter(EntityPlayer player) {
-        return this.typeFilters.getFilters(player);
+        return this.typeFilters.getFilters(player)
+            .getFiltersMap();
     }
 
     @Override

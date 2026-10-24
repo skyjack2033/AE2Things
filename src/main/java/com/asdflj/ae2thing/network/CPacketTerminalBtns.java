@@ -122,6 +122,11 @@ public class CPacketTerminalBtns implements IMessage {
                             case "3" -> cpt.encodeAllItemAndMoveToInventory();
                         }
                     }
+                    case "PatternTerminal.UploadToAssemblerMatrix" -> {
+                        if (intValue != null && c instanceof ContainerWirelessDualInterfaceTerminal terminal) {
+                            terminal.uploadToAssemblerMatrix(intValue);
+                        }
+                    }
                     case "PatternTerminal.CraftMode" -> cpt.getPatternTerminal()
                         .setCraftingRecipe(value.equals("1"));
                     case "PatternTerminal.Combine" -> cpt.getPatternTerminal()
@@ -134,14 +139,12 @@ public class CPacketTerminalBtns implements IMessage {
                     case "PatternTerminal.Double" -> {
                         if (intValue != null) cpt.doubleStacks(intValue);
                     }
-                    case "PatternTerminal.Substitute" -> cpt.getPatternTerminal()
-                        .setSubstitution(value.equals("1"));
-                    case "PatternTerminal.Prioritize" -> {
-                        switch (value) {
-                            case "0", "1" -> cpt.getPatternTerminal()
-                                .setPrioritization(value.equals("1"));
-                            case "2" -> cpt.getPatternTerminal()
-                                .sortCraftingItems();
+                    case "PatternTerminal.Substitute" -> {
+                        boolean enable = value.equals("1");
+                        if (!enable || !(c instanceof ContainerWirelessDualInterfaceTerminal terminal)
+                            || terminal.allowsInputSubstitution()) {
+                            cpt.getPatternTerminal()
+                                .setSubstitution(enable);
                         }
                     }
                     case "PatternTerminal.Invert" -> cpt.getPatternTerminal()
@@ -166,6 +169,9 @@ public class CPacketTerminalBtns implements IMessage {
                     }
                     case "InterfaceTerminal.PlacePattern" -> {
                         if (intValue != null && tag != null) ciw.PlacePattern(intValue, tag);
+                    }
+                    case "InterfaceTerminal.EncodeAndPlacePattern" -> {
+                        if (intValue != null && tag != null) ciw.encodeAndPlacePattern(intValue, tag);
                     }
                 }
 

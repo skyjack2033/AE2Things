@@ -22,17 +22,15 @@ import com.asdflj.ae2thing.client.gui.container.slot.SlotPattern;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
 import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
-import com.glodblock.github.common.item.ItemFluidDrop;
-import com.glodblock.github.common.item.ItemFluidEncodedPattern;
-import com.glodblock.github.common.item.ItemFluidPacket;
-import com.glodblock.github.loader.ItemAndBlockHolder;
-import com.glodblock.github.util.FluidPatternDetails;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.glodblock.github.util.Util;
 
 import appeng.api.AEApi;
 import appeng.api.definitions.IDefinitions;
+import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.IOptionalSlotHost;
 import appeng.container.slot.SlotFake;
@@ -171,10 +169,9 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     public void detectAndSendChanges() {
         if (Platform.isServer()) {
-            this.container.substitute = this.it.isSubstitution();
+            this.container.substitute = this.it.isSubstitution() && allowsInputSubstitution();
             this.container.combine = this.it.shouldCombine();
             this.container.beSubstitute = this.it.canBeSubstitute();
-            this.container.prioritize = this.it.isPrioritize();
             this.container.craftingMode = this.it.isCraftingRecipe();
             if (container.inverted != it.isInverted() || container.activePage != it.getActivePage()) {
                 container.inverted = it.isInverted();
@@ -186,6 +183,18 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
                 this.updateOrderOfOutputSlots();
             }
         }
+    }
+
+    public boolean allowsInputSubstitution() {
+        boolean craftingMode = Platform.isServer() ? this.it.isCraftingRecipe() : this.container.isCraftingMode();
+        return craftingMode || !containsFluidMarker(this.craftingEx) && !containsFluidMarker(this.outputEx);
+    }
+
+    private static boolean containsFluidMarker(IInventory inventory) {
+        for (int slot = 0; slot < inventory.getSizeInventory(); slot++) {
+            if (PatternStackCodec.isFluidMarker(inventory.getStackInSlot(slot))) return true;
+        }
+        return false;
     }
 
     private void updateOrderOfOutputSlots() {
@@ -351,24 +360,6 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
         }
     }
 
-    protected static boolean containsFluid(SlotFake[] slots) {
-        for (SlotFake slot : slots) {
-            if (slot.isEnabled() && Util.isFluidPacket(slot.getStack())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    protected static boolean nonNullSlot(SlotFake[] slots) {
-        for (SlotFake slot : slots) {
-            if (slot.isEnabled() && slot.getStack() != null) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     protected ItemStack[] getInputs() {
         final ArrayList<ItemStack> input = new ArrayList<>();
         boolean hasInput = false;
@@ -420,7 +411,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
         if (output == null) {
             return true;
         }
-        if (output.getItem() instanceof ItemFluidEncodedPattern) {
+        if (output.getItem() instanceof ICraftingPatternItem) {
             return false;
         }
         final IDefinitions definitions = AEApi.instance()
@@ -436,64 +427,35 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
         return !isPattern;
     }
 
-    protected boolean checkHasFluidPattern() {
-        if (this.container.craftingMode) {
-            return false;
-        }
-        boolean hasFluid = containsFluid(this.craftingExSlots);
-        boolean search = nonNullSlot(this.craftingExSlots);
-        if (!search) { // search=false -> inputs were empty
-            return false;
-        }
-        hasFluid |= containsFluid(this.outputExSlots);
-        search = nonNullSlot(this.outputExSlots);
-        return hasFluid && search; // search=false -> outputs were empty
+    public void encodeItemPattern() {
+        encodeItemPatternWithResult();
     }
 
-    public void encodeItemPattern() {
+    private boolean encodeItemPatternWithResult() {
         ItemStack output = this.patternSlotOUT.getStack();
         final ItemStack[] in = this.getInputs();
         final ItemStack[] out = this.getOutputs();
 
         // if there is no input, this would be silly.
         if (in == null || out == null) {
-            return;
+            return false;
         }
         // first check the output slots, should either be null, or a pattern
         if (output != null && this.notPattern(output)) {
-            return;
-        } // if nothing is there we should snag a new pattern.
-        else if (output == null) {
-            output = this.patternSlotIN.getStack();
-            if (this.notPattern(output)) {
-                return; // no blanks.
-            }
-
-            // remove one, and clear the input slot.
-            output.stackSize--;
-            if (output.stackSize == 0) {
-                this.patternSlotIN.putStack(null);
-            }
-
-            // add a new encoded pattern.
-            for (final ItemStack encodedPatternStack : AEApi.instance()
-                .definitions()
-                .items()
-                .encodedPattern()
-                .maybeStack(1)
-                .asSet()) {
-                output = encodedPatternStack;
-            }
-        } else if (output.getItem() instanceof ItemFluidEncodedPattern) {
-            for (final ItemStack encodedPatternStack : AEApi.instance()
-                .definitions()
-                .items()
-                .encodedPattern()
-                .maybeStack(1)
-                .asSet()) {
-                output = encodedPatternStack;
-            }
+            return false;
         }
+        if (output == null) {
+            ItemStack blank = this.patternSlotIN.getStack();
+            if (this.notPattern(blank) || blank.stackSize <= 0) return false;
+        }
+        // The item determines which parser reads the NBT. Never reuse an older processing-pattern item here.
+        output = AEApi.instance()
+            .definitions()
+            .items()
+            .encodedPattern()
+            .maybeStack(1)
+            .orNull();
+        if (output == null) return false;
 
         // encode the slot.
         final NBTTagCompound encodedValue = new NBTTagCompound();
@@ -514,10 +476,9 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
         encodedValue.setBoolean("crafting", this.container.craftingMode);
         encodedValue.setBoolean("substitute", this.container.substitute);
         encodedValue.setBoolean("beSubstitute", this.container.beSubstitute);
-        encodedValue.setBoolean("prioritize", this.container.prioritize);
         output.setTagCompound(encodedValue);
         stampAuthor(output);
-        this.patternSlotOUT.putStack(output);
+        return storeEncodedPattern(this.patternSlotIN, this.patternSlotOUT, output);
     }
 
     protected ItemStack stampAuthor(ItemStack patternStack) {
@@ -538,59 +499,88 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     @Override
     public void encode() {
+        if (encodeForUpload()) refillBlankPatterns();
+    }
+
+    public void refillBlankPatterns() {
         if (this.hasRefillerUpgrade()) refillBlankPatterns(this.patternSlotIN);
-        if (!checkHasFluidPattern()) {
-            encodeItemPattern();
-            return;
+    }
+
+    /** Returns success for this encoding attempt, independently of any output left from an earlier recipe. */
+    public boolean encodeForUpload() {
+        if (this.hasRefillerUpgrade()) refillBlankPatterns(this.patternSlotIN);
+        if (this.container.isCraftingMode()) {
+            return encodeItemPatternWithResult();
         }
         ItemStack stack = this.patternSlotOUT.getStack();
         if (stack == null) {
             stack = this.patternSlotIN.getStack();
-            if (notPattern(stack)) {
-                return;
-            }
-            if (stack.stackSize == 1) {
-                this.patternSlotIN.putStack(null);
-            } else {
-                stack.stackSize--;
-            }
-            encodeFluidPattern();
-        } else if (!notPattern(stack)) {
-            encodeFluidPattern();
+            if (notPattern(stack) || stack.stackSize <= 0) return false;
+        } else if (notPattern(stack)) {
+            return false;
         }
+        return storeEncodedPattern(this.patternSlotIN, this.patternSlotOUT, createProcessingPattern());
     }
 
-    protected static IAEItemStack[] collectInventory(Slot[] slots) {
-        IAEItemStack[] stacks = new IAEItemStack[slots.length];
+    static boolean storeEncodedPattern(Slot blankSlot, Slot outputSlot, ItemStack encoded) {
+        if (encoded == null || encoded.stackSize <= 0) return false;
+        ItemStack previous = outputSlot.getStack();
+        ItemStack blanks = blankSlot.getStack();
+        if (previous == null && (blanks == null || blanks.stackSize <= 0)) return false;
+
+        outputSlot.putStack(encoded.copy());
+        if (!ItemStack.areItemStacksEqual(encoded, outputSlot.getStack())) {
+            outputSlot.putStack(previous);
+            return false;
+        }
+        if (previous == null) {
+            ItemStack remaining = blanks.stackSize == 1 ? null : blanks.copy();
+            if (remaining != null) remaining.stackSize--;
+            blankSlot.putStack(remaining == null ? null : remaining.copy());
+            if (!ItemStack.areItemStacksEqual(remaining, blankSlot.getStack())) {
+                blankSlot.putStack(blanks);
+                outputSlot.putStack(null);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected static IAEStack<?>[] collectInventory(Slot[] slots) {
+        IAEStack<?>[] stacks = new IAEStack<?>[slots.length];
         for (int i = 0; i < stacks.length; i++) {
             ItemStack stack = slots[i].getStack();
-            if (stack != null) {
-                if (stack.getItem() instanceof ItemFluidPacket) {
-                    IAEItemStack dropStack = ItemFluidDrop.newAeStack(ItemFluidPacket.getFluidStack(stack));
-                    if (dropStack != null) {
-                        stacks[i] = dropStack;
-                        continue;
-                    }
-                }
-            }
-            IAEItemStack aeStack = AEItemStack.create(stack);
-            stacks[i] = aeStack;
+            stacks[i] = PatternStackCodec.toPatternStack(stack);
+            // A malformed fluid slot must fail the whole encode, not silently disappear from the recipe.
+            if (stack != null && stacks[i] == null) return null;
         }
         return stacks;
     }
 
-    protected void encodeFluidPattern() {
-        ItemStack patternStack = new ItemStack(ItemAndBlockHolder.PATTERN);
-        FluidPatternDetails pattern = new FluidPatternDetails(patternStack);
-        pattern.setInputs(collectInventory(this.craftingExSlots));
-        pattern.setOutputs(collectInventory(this.outputExSlots));
-        pattern.setCanBeSubstitute(this.container.beSubstitute ? 1 : 0);
-        patternSlotOUT.putStack(stampAuthor(pattern.writeToStack()));
+    private ItemStack createProcessingPattern() {
+        NBTTagCompound data = PatternStackCodec.processingData(
+            collectInventory(this.craftingExSlots),
+            collectInventory(this.outputExSlots),
+            this.container.substitute,
+            this.container.beSubstitute);
+        if (data == null) return null;
+        ItemStack pattern = AEApi.instance()
+            .definitions()
+            .items()
+            .encodedUltimatePattern()
+            .maybeStack(1)
+            .orNull();
+        if (pattern == null) return null;
+        pattern.setTagCompound(data);
+        stampAuthor(pattern);
+        ICraftingPatternItem item = (ICraftingPatternItem) pattern.getItem();
+        if (item.getPatternForItem(pattern, this.container.getPlayerInv().player.worldObj) == null) return null;
+        return pattern;
     }
 
     @Override
     public void encodeAndMoveToInventory() {
-        this.encode();
+        this.encodeForUpload();
         ItemStack output = this.patternSlotOUT.getStack();
         if (output != null) {
             if (!this.container.getPlayerInv()
@@ -604,7 +594,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
 
     @Override
     public void encodeAllItemAndMoveToInventory() {
-        this.encode();
+        this.encodeForUpload();
         ItemStack output = this.patternSlotOUT.getStack();
         if (output != null) {
             if (this.patternSlotIN.getStack() != null) output.stackSize += this.patternSlotIN.getStack().stackSize;
@@ -629,6 +619,9 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
     }
 
     public void onSlotChange(Slot s) {
+        if (s == this.patternRefiller && Platform.isServer()) {
+            this.refillBlankPatterns();
+        }
         if (s == this.patternSlotOUT && Platform.isServer()) {
             this.container.setInverted(this.it.isInverted());
             for (final Object crafter : this.container.getCrafters()) {

@@ -15,17 +15,24 @@ import com.asdflj.ae2thing.network.CPacketCraftRequest;
 import appeng.api.config.CraftingMode;
 import appeng.api.config.Settings;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.storage.StorageName;
+import appeng.api.storage.data.IAEStack;
+import appeng.client.gui.slots.VirtualMESlotSingle;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.container.implementations.ContainerCraftAmount;
+import appeng.container.interfaces.IVirtualSlotHolder;
 import appeng.core.localization.GuiText;
 import appeng.util.Platform;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 
-public class GuiCraftAmount extends GuiAmount {
+public class GuiCraftAmount extends GuiAmount implements IVirtualSlotHolder {
 
     protected GuiImgButton craftingMode;
+    private final VirtualMESlotSingle slot;
 
     public GuiCraftAmount(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
         super(new ContainerCraftAmount(inventoryPlayer, te));
+        this.slot = new VirtualMESlotSingle(34, 53, 0, null);
     }
 
     @Override
@@ -37,6 +44,7 @@ public class GuiCraftAmount extends GuiAmount {
                 this.guiTop + 53,
                 Settings.CRAFTING_MODE,
                 CraftingMode.STANDARD));
+        this.registerVirtualSlots(this.slot);
         this.amountBox.setText("1");
         this.amountBox.setCursorPositionEnd();
     }
@@ -107,5 +115,10 @@ public class GuiCraftAmount extends GuiAmount {
     public void setAmount(int amount) {
         this.amountBox.setText(String.valueOf(amount));
         this.amountBox.setCursorPositionEnd();
+    }
+
+    @Override
+    public void receiveSlotStacks(final StorageName invName, final Int2ObjectMap<IAEStack<?>> slotStacks) {
+        this.slot.setAEStack(slotStacks.get(0));
     }
 }

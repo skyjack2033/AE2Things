@@ -16,10 +16,12 @@ import com.asdflj.ae2thing.inventory.item.IItemInventory;
 import com.asdflj.ae2thing.inventory.item.PatternModifierInventory;
 import com.asdflj.ae2thing.util.BlockPos;
 import com.asdflj.ae2thing.util.GTUtil;
+import com.asdflj.ae2thing.util.InterfacePatternInventory;
 import com.asdflj.ae2thing.util.NameConst;
 
 import appeng.api.parts.IPart;
 import appeng.api.util.IInterfaceViewable;
+import appeng.me.cache.CraftingGridCache;
 import appeng.tile.networking.TileCableBus;
 import appeng.util.Platform;
 import cpw.mods.fml.common.registry.GameRegistry;
@@ -76,7 +78,19 @@ public class ItemPatternModifier extends BaseItem implements IItemInventory {
             } else {
                 host = null;
             }
-            patternModifierInventory.extractToHost(host);
+            boolean changed = false;
+            InterfacePatternInventory.Batch batch = InterfacePatternInventory.beginBatch(host);
+            CraftingGridCache.pauseRebuilds();
+            try {
+                changed = patternModifierInventory.extractToHost(host);
+            } finally {
+                try {
+                    InterfacePatternInventory.endBatch(batch, changed);
+                } finally {
+                    CraftingGridCache.unpauseRebuilds();
+                }
+            }
+            if (changed) InterfacePatternInventory.notifyPatternChange(host);
             return true;
         }
         return false;

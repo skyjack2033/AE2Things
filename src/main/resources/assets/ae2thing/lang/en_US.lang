@@ -93,6 +93,27 @@ ae2thing.gui.pattern_rename=Custom Name
 ae2thing.gui.button.replan=Replan
 ae2thing.gui.terminal_menu.page=Current page: %s
 ae2thing.gui.terminal_menu.max_page=Max page: %s
+ae2thing.gui.search_settings=Interface Search Settings
+ae2thing.config.title=AE2T Settings
+ae2thing.config.interface_terminal_search=Interface Recipe Search
+ae2thing.config.interface_terminal_search.tooltip=Client-side recipe search settings. Changes apply without restarting.
+ae2thing.config.interface_terminal_search.auto_fill=Automatically Search After NEI Recipe Transfer
+ae2thing.config.interface_terminal_search.auto_fill.tooltip=Use the transferred NEI recipe to filter interfaces. Disable to keep the existing search.
+ae2thing.config.interface_terminal_search.append_circuit_numbers=Include Circuit Numbers
+ae2thing.config.interface_terminal_search.append_circuit_numbers.tooltip=Add integrated circuit numbers to the search. Other non-consumed ingredients are controlled separately.
+ae2thing.config.interface_terminal_search.append_non_consumed_items=Include Molds and Other Non-Consumed Items
+ae2thing.config.interface_terminal_search.append_non_consumed_items.tooltip=Add the names of non-consumed ingredients, such as molds and lenses, to the search.
+ae2thing.config.interface_terminal_search.match_recipe_maps=Match Machine Recipe Maps
+ae2thing.config.interface_terminal_search.match_recipe_maps.tooltip=Match interfaces by their machine's recipe map instead of its display name. Use name matching when the recipe map cannot be identified.
+ae2thing.config.general=General Settings (Restart Required)
+ae2thing.config.general.tooltip=Existing AE2T settings. Restart Minecraft after changing these options.
+ae2thing.config.general.cell_link=Link Cells with the Same UUID
+ae2thing.config.general.magnet_range=Backpack Terminal Magnet Range
+ae2thing.config.general.update_view_thread=Terminal Background View Updates
+ae2thing.config.general.infinity_connection_range=Unlimited Wireless Connector Terminal Range
+ae2thing.config.general.ex_io_port_transfer_rate=Extended IO Port Transfer Rate
+ae2thing.config.general.tic_support=Backpack Terminal Tinkers' Construct Support
+ae2thing.config.general.crafting_history_size=Crafting History Size
 ae2thing.nei.find_cell_item.highlight=The storage block is now highlighted at %d,%d,%d
 ae2thing.nei.find_cell_item.in_other_dim=Storage block at dimension: %d and cant be highlighted
 ae2thing.key.open_backpack_terminal=Open Backpack Terminal
@@ -148,9 +169,17 @@ nei.options.ae2thing.dual_interface_terminal_fill_circuit=Dual interface termina
 nei.options.ae2thing.dual_interface_terminal_fill_circuit.true=Yes
 nei.options.ae2thing.dual_interface_terminal_fill_circuit.false=No
 
-nei.options.ae2thing.dual_interface_terminal_append_circuit_damage=Dual interface terminal append NC items (molds, circuit boards, etc.) to recipe name
+nei.options.ae2thing.dual_interface_terminal_append_circuit_damage=Interface recipe search: include circuit numbers
 nei.options.ae2thing.dual_interface_terminal_append_circuit_damage.true=Yes
 nei.options.ae2thing.dual_interface_terminal_append_circuit_damage.false=No
+
+nei.options.ae2thing.dual_interface_terminal_append_non_consumed_items=Interface recipe search: include molds and other non-consumed items
+nei.options.ae2thing.dual_interface_terminal_append_non_consumed_items.true=Yes
+nei.options.ae2thing.dual_interface_terminal_append_non_consumed_items.false=No
+
+nei.options.ae2thing.dual_interface_terminal_match_recipe_maps=Interface recipe search: match machine recipe maps
+nei.options.ae2thing.dual_interface_terminal_match_recipe_maps.true=Yes
+nei.options.ae2thing.dual_interface_terminal_match_recipe_maps.false=No
 
 nei.options.ae2thing.crafting_notification=Notify about finished crafting jobs (requires wireless terminal)
 nei.options.ae2thing.crafting_notification.true=Yes

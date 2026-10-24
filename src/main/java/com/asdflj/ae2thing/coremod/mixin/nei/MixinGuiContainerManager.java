@@ -1,13 +1,11 @@
 package com.asdflj.ae2thing.coremod.mixin.nei;
 
-import static appeng.client.gui.AEBaseGui.aeRenderItem;
 import static codechicken.nei.guihook.GuiContainerManager.getStackMouseOver;
 import static com.asdflj.ae2thing.client.render.RenderHelper.canDrawPlus;
 import static com.asdflj.ae2thing.client.render.RenderHelper.drawPlus;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -20,20 +18,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.asdflj.ae2thing.api.AE2ThingAPI;
 import com.asdflj.ae2thing.client.gui.widget.IGuiMonitor;
-import com.asdflj.ae2thing.client.render.RenderHelper;
 import com.asdflj.ae2thing.nei.ButtonConstants;
 import com.asdflj.ae2thing.nei.NEI_TH_Config;
 import com.asdflj.ae2thing.util.Ae2ReflectClient;
 import com.asdflj.ae2thing.util.Util;
-import com.glodblock.github.common.item.ItemFluidDrop;
 
-import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IDisplayRepo;
 import appeng.api.storage.data.IItemList;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.me.ItemRepo;
-import appeng.util.Platform;
+import appeng.util.item.AEFluidStack;
 import appeng.util.item.AEItemStack;
 import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.recipe.GuiRecipe;
@@ -44,11 +39,6 @@ public abstract class MixinGuiContainerManager {
 
     @Shadow(remap = false)
     public GuiContainer window;
-
-    private static RenderItem ae2thing$r = RenderHelper.itemRender;
-
-    private static ItemStack ae2Thing$lastStack = null;
-    private static IAEItemStack ae2thing$lastAEStack = null;
 
     @Inject(
         method = "renderToolTips",
@@ -61,12 +51,10 @@ public abstract class MixinGuiContainerManager {
         ItemStack stack;
         stack = getStackMouseOver(this.window);
         if (stack == null) return;
-        boolean displayFluid = false;
         if (window instanceof GuiRecipe<?>gui) {
             IDisplayRepo repo = null;
             if (gui.getFirstScreenGeneral() instanceof IGuiMonitor g) {
                 repo = g.getRepo();
-                displayFluid = true;
             } else if (AE2ThingAPI.instance()
                 .terminal()
                 .isTerminal(gui.getFirstScreenGeneral())) {
@@ -75,48 +63,30 @@ public abstract class MixinGuiContainerManager {
             if (!(repo instanceof ItemRepo)) return;
             IItemList<IAEStack<?>> list = Ae2ReflectClient.getList((ItemRepo) repo);
             FluidStack fs = StackInfo.getFluid(stack);
-            if (fs != null) {
-                stack = displayFluid ? ItemFluidDrop.newDisplayStack(fs) : ItemFluidDrop.newStack(fs);
-            }
-            IAEStack<?> found = list.findPrecise(
-                ae2Thing$lastStack != null && Platform.isSameItemPrecise(ae2Thing$lastStack, stack)
-                    && ae2thing$lastAEStack != null ? ae2thing$lastAEStack : AEItemStack.create(stack));
-            if (found instanceof IAEItemStack item) {
-                ae2thing$render(item, mousex - 8, mousey - 40 < 0 ? mousey + 40 : mousey - 40);
-                ae2thing$lastAEStack = item;
-                ae2Thing$lastStack = stack;
+            IAEStack<?> target = fs == null ? AEItemStack.create(stack) : AEFluidStack.create(fs);
+            IAEStack<?> found = target == null ? null : list.findPrecise(target);
+            if (found != null) {
+                ae2thing$render(found, mousex - 8, mousey - 40 < 0 ? mousey + 40 : mousey - 40);
             }
         }
 
     }
 
-    private void ae2thing$render(IAEItemStack item, int x, int y) {
-        ItemStack stack = item.getItemStack();
+    private void ae2thing$render(IAEStack<?> stack, int x, int y) {
+        Minecraft mc = Minecraft.getMinecraft();
+        GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_CURRENT_BIT | GL11.GL_LIGHTING_BIT);
         GL11.glPushMatrix();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GL11.glTranslatef(0.0f, 0.0f, 350);
-        ae2thing$r.renderItemAndEffectIntoGUI(
-            Minecraft.getMinecraft().fontRenderer,
-            Minecraft.getMinecraft()
-                .getTextureManager(),
-            stack,
-            x,
-            y);
-        GL11.glTranslatef(0.0f, 0.0f, 200.0f);
-        aeRenderItem.setAeStack(item);
-        aeRenderItem.renderItemOverlayIntoGUI(
-            Minecraft.getMinecraft().fontRenderer,
-            Minecraft.getMinecraft()
-                .getTextureManager(),
-            stack,
-            x,
-            y);
-        GL11.glTranslatef(0.0f, 0.0f, -350.0f);
-        if (item.isCraftable() && canDrawPlus) {
+        stack.drawInGui(mc, x, y);
+        stack.drawOverlayInGui(mc, x, y, true, false, true, false);
+        GL11.glTranslatef(0.0f, 0.0f, -150.0f);
+        if (stack.isCraftable() && canDrawPlus) {
             GL11.glTranslatef(0.0f, 0.0f, 450.0f);
             drawPlus(x, y);
             GL11.glTranslatef(0.0f, 0.0f, -450.0f);
         }
         GL11.glPopMatrix();
+        GL11.glPopAttrib();
     }
 }

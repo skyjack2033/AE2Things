@@ -36,16 +36,21 @@ import org.lwjgl.opengl.GL12;
 
 import com.asdflj.ae2thing.AE2Thing;
 import com.asdflj.ae2thing.client.gui.container.ContainerWirelessDualInterfaceTerminal;
+import com.asdflj.ae2thing.client.gui.widget.InterfaceSearchSettings;
 import com.asdflj.ae2thing.client.gui.widget.THGuiTextField;
 import com.asdflj.ae2thing.client.render.BlockPosHighlighter;
+import com.asdflj.ae2thing.common.Config;
 import com.asdflj.ae2thing.common.item.ItemPatternModifier;
 import com.asdflj.ae2thing.integration.Mods;
 import com.asdflj.ae2thing.network.CPacketRenamer;
 import com.asdflj.ae2thing.network.CPacketTerminalBtns;
 import com.asdflj.ae2thing.proxy.ClientProxy;
 import com.asdflj.ae2thing.util.GTUtil;
+import com.asdflj.ae2thing.util.InterfaceRecipeMapSearch;
+import com.asdflj.ae2thing.util.InterfaceTerminalNames;
 import com.asdflj.ae2thing.util.ModAndClassUtil;
 import com.asdflj.ae2thing.util.NeCharUtil;
+import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.asdflj.ae2thing.util.Util;
 import com.glodblock.github.client.gui.GuiFCImgButton;
 
@@ -54,7 +59,11 @@ import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.config.YesNo;
+import appeng.api.implementations.ICraftingPatternItem;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.data.IAEStack;
 import appeng.api.util.DimensionalCoord;
 import appeng.client.gui.IInterfaceTerminalPostUpdate;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -67,18 +76,16 @@ import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.CommonHelper;
 import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.GuiColors;
+import appeng.core.localization.ColorUtils;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInterfaceTerminalUpdate;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.helpers.InventoryAction;
-import appeng.helpers.PatternHelper;
 import appeng.integration.IntegrationRegistry;
 import appeng.integration.IntegrationType;
 import appeng.items.misc.ItemEncodedPattern;
-import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
@@ -104,6 +111,15 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
     private final GuiImgButton guiButtonBrokenRecipes;
     private final GuiImgButton terminalStyleBox;
     private final GuiImgButton searchStringSave;
+    private final GuiFCImgButton searchSettingsButton;
+    private final InterfaceRecipeMapSearch recipeMapSearch = new InterfaceRecipeMapSearch();
+    private final Map<Long, Set<String>> interfaceRecipeMaps = new HashMap<>();
+    private InterfaceSearchSettings searchSettings;
+    private String recipeSearchName = "";
+    private String recipeSearchMapId = "";
+    private String recipeCircuitTerms = "";
+    private String recipeItemTerms = "";
+    private String generatedRecipeQuery = "";
     private boolean onlyMolecularAssemblers = false;
     private boolean onlyBrokenRecipes = false;
     private boolean online;
@@ -125,7 +141,6 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
     private static final float SLOT_HOVER_Z = 310.0f;
     private static final float TOOLTIP_Z = 410.0f;
     private static final float STEP_Z = 10.0f;
-    private static final float MAGIC_RENDER_ITEM_Z = 50.0f;
 
     protected int offsetY;
 
@@ -171,6 +186,13 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         guiButtonBrokenRecipes = new GuiImgButton(0, 0, Settings.ACTIONS, null);
 
         terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, null);
+        searchSettingsButton = new GuiFCImgButton(0, 0, "SWITCH", "ENABLE") {
+
+            @Override
+            public String getMessage() {
+                return StatCollector.translateToLocal("ae2thing.gui.search_settings");
+            }
+        };
 
         this.extraOptionsText = new ArrayList<>(2);
         extraOptionsText.add(ButtonToolTips.HighlightInterface.getLocal());
@@ -238,7 +260,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         guiButtonAssemblersOnly.xPosition = guiLeft - 18;
         guiButtonAssemblersOnly.yPosition = guiButtonHideFull.yPosition + 18;
 
-        offsetY = guiButtonAssemblersOnly.yPosition + 18;
+        searchSettingsButton.xPosition = guiLeft - 18;
+        searchSettingsButton.yPosition = guiButtonAssemblersOnly.yPosition + 18;
+        offsetY = searchSettingsButton.yPosition + 18;
+        searchSettings = null;
 
         if (AEConfig.instance.preserveSearchBar || isSubGui()) {
             setSearchString();
@@ -252,6 +277,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         buttonList.add(guiButtonBrokenRecipes);
         buttonList.add(searchStringSave);
         buttonList.add(terminalStyleBox);
+        buttonList.add(searchSettingsButton);
+        refreshRecipeSearch(false);
     }
 
     protected void repositionSlots() {
@@ -297,6 +324,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
         super.drawScreen(mouseX, mouseY, btn);
 
+        if (searchSettings != null) {
+            searchSettings.draw(width, height, mouseX, mouseY);
+            return;
+        }
         handleTooltip(mouseX, mouseY, searchFieldInputs);
         handleTooltip(mouseX, mouseY, searchFieldOutputs);
         handleTooltip(mouseX, mouseY, searchFieldNames.getTooltipProvider());
@@ -304,6 +335,10 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) {
+        if (searchSettings != null) {
+            searchSettings.mouseClicked(xCoord, yCoord, btn);
+            return;
+        }
         searchFieldInputs.mouseClicked(xCoord, yCoord, btn);
         searchFieldOutputs.mouseClicked(xCoord, yCoord, btn);
         searchFieldNames.mouseClicked(xCoord, yCoord, btn);
@@ -322,9 +357,67 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         searchFieldNames.setText(text);
     }
 
+    public boolean isSearchSettingsOpen() {
+        return searchSettings != null;
+    }
+
+    public void setRecipeSearch(String recipeName, String recipeMapId, String circuitTerms, String itemTerms) {
+        this.recipeSearchName = recipeName;
+        this.recipeSearchMapId = recipeMapId;
+        this.recipeCircuitTerms = circuitTerms;
+        this.recipeItemTerms = itemTerms;
+        refreshRecipeSearch(true);
+    }
+
+    private void refreshRecipeSearch(boolean transferredRecipe) {
+        if (recipeSearchName.isEmpty()) {
+            masterList.markDirty();
+            return;
+        }
+        StringBuilder terms = new StringBuilder();
+        if (Config.interfaceTerminalAppendCircuitNumbers) terms.append(recipeCircuitTerms);
+        if (Config.interfaceTerminalAppendNonConsumedItems && !recipeItemTerms.isEmpty()) {
+            if (terms.length() > 0) terms.append(' ');
+            terms.append(recipeItemTerms);
+        }
+        String query = recipeSearchName + (terms.length() == 0 ? "" : " " + terms);
+        boolean updateText = transferredRecipe ? Config.interfaceTerminalAutoFillSearchNames
+            : searchFieldNames.getText()
+                .equals(generatedRecipeQuery);
+        generatedRecipeQuery = query;
+        recipeMapSearch.setRecipe(recipeSearchMapId, query, terms.toString());
+        searchFieldNames.setSuggestion(query);
+        if (updateText) searchFieldNames.setText(query);
+        masterList.markDirty();
+        if (updateText) {
+            setHighlightSlot();
+        } else if (!isCurrentHighlightEntry(ClientProxy.getInterfaceHighlightEntry())) {
+            ClientProxy.setInterfaceHighlightEntry(null);
+        }
+    }
+
+    public void updateRecipeMaps(int windowId, Map<Long, Set<String>> recipeMaps) {
+        if (inventorySlots.windowId != windowId) return;
+        interfaceRecipeMaps.clear();
+        interfaceRecipeMaps.putAll(recipeMaps);
+        masterList.markDirty();
+        if (!isCurrentHighlightEntry(ClientProxy.getInterfaceHighlightEntry())) {
+            ClientProxy.setInterfaceHighlightEntry(null);
+        }
+    }
+
     @Override
     protected void actionPerformed(final GuiButton btn) {
-        if (btn == guiButtonAssemblersOnly) {
+        if (btn == searchSettingsButton) {
+            searchFieldNames.setFocused(false);
+            searchFieldInputs.setFocused(false);
+            searchFieldOutputs.setFocused(false);
+            searchSettings = new InterfaceSearchSettings(
+                width,
+                height,
+                () -> refreshRecipeSearch(false),
+                () -> searchSettings = null);
+        } else if (btn == guiButtonAssemblersOnly) {
             onlyMolecularAssemblers = !onlyMolecularAssemblers;
             masterList.markDirty();
         } else if (btn == guiButtonHideFull) {
@@ -486,7 +579,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         Iterator<InterfaceWirelessEntry> visible = section.getVisible();
         while (visible.hasNext()) {
             InterfaceWirelessEntry entry = visible.next();
-            if (viewY + renderY + entry.rows * 18 + 1 > 0 && viewY + renderY < viewHeight) {
+            // Use actualRows for rendering height calculation
+            int actualRows = (int) Math.ceil((double) entry.numSlots / entry.rowSize);
+            if (viewY + renderY + actualRows * 18 + 1 > 0 && viewY + renderY < viewHeight) {
                 renderY += drawEntry(
                     entry,
                     viewY + InterfaceWirelessSection.TITLE_HEIGHT + renderY,
@@ -496,10 +591,12 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             } else {
                 entry.dispY = -9999;
                 entry.optionsButton.yPosition = -1;
-                renderY += entry.rows * 18 + 1;
+                renderY += actualRows * 18 + 1;
             }
         }
         bindTexture(BACKGROUND);
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_DEPTH_BUFFER_BIT);
         GL11.glTranslatef(0.0f, 0.0f, ITEM_STACK_OVERLAY_Z + ITEM_STACK_Z + STEP_Z);
         if (sectionBottom > 0 && sectionBottom < InterfaceWirelessSection.TITLE_HEIGHT) {
             /* Transition draw */
@@ -518,7 +615,6 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             GL11.glTranslatef(0.0f, 0.0f, 100f);
             drawTexturedModalRect(0, 0, VIEW_LEFT, HEADER_HEIGHT, VIEW_WIDTH, InterfaceWirelessSection.TITLE_HEIGHT);
             fontRendererObj.drawString(section.name, 2, 2, fontColor);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
         } else {
             /* Normal title draw */
             drawTexturedModalRect(
@@ -530,7 +626,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 InterfaceWirelessSection.TITLE_HEIGHT);
             fontRendererObj.drawString(section.name, 2, viewY + 2, fontColor);
         }
-        GL11.glTranslatef(0.0f, 0.0f, -(ITEM_STACK_OVERLAY_Z + ITEM_STACK_Z + STEP_Z));
+        GL11.glPopAttrib();
+        GL11.glPopMatrix();
 
         return InterfaceWirelessSection.TITLE_HEIGHT + renderY;
     }
@@ -548,7 +645,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
         entry.dispY = viewY;
         /* PASS 1: BG */
-        for (int row = 0; row < entry.rows; ++row) {
+        // Calculate actual rows based on numSlots for super patterns (GT Not Leisure)
+        final int actualRows = (int) Math.ceil((double) entry.numSlots / entry.rowSize);
+        for (int row = 0; row < actualRows; ++row) {
             final int rowYTop = row * 18;
             final int rowYBot = rowYTop + 18;
 
@@ -558,6 +657,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 continue;
             }
             for (int col = 0; col < entry.rowSize; ++col) {
+                if (row * entry.rowSize + col >= entry.numSlots) break;
                 addTexturedRectToTesselator(
                     col * 18 + slotLeftMargin,
                     viewY + rowYTop,
@@ -611,7 +711,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         }
         /* PASS 2: Items */
         boolean drawHighlightSlot = true;
-        for (int row = 0; row < entry.rows; ++row) {
+        for (int row = 0; row < actualRows; ++row) {
             final int rowYTop = row * 18;
             final int rowYBot = rowYTop + 18;
             /* Is the slot row in view? */
@@ -624,6 +724,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 final int colLeft = col * 18 + slotLeftMargin + 1;
                 final int colRight = colLeft + 18 + 1;
                 final int slotIdx = row * entry.rowSize + col;
+                if (slotIdx >= entry.numSlots) break;
                 ItemStack stack = inv.getStackInSlot(slotIdx);
 
                 boolean tooltip = relMouseX > colLeft - 1 && relMouseX < colRight - 1
@@ -631,27 +732,31 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                     && relMouseY < Math.min(viewY + rowYBot, viewHeight);
                 if (stack != null) {
                     final ItemEncodedPattern iep = (ItemEncodedPattern) stack.getItem();
-                    final ItemStack toRender = iep.getOutput(stack);
+                    final IAEStack<?> encodedOutput = PatternStackCodec.normalize(iep.getOutputAE(stack));
+                    // Keep invalid patterns visible and hoverable even when no output can
+                    // be decoded, so the invalid overlay and tooltip remain available.
+                    final IAEStack<?> output = encodedOutput == null ? AEItemStack.create(stack) : encodedOutput;
 
                     GL11.glPushMatrix();
                     GL11.glTranslatef(colLeft, viewY + rowYTop + 1, ITEM_STACK_Z);
+                    GL11.glPushAttrib(
+                        GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_LIGHTING_BIT | GL11.GL_CURRENT_BIT);
                     GL11.glEnable(GL12.GL_RESCALE_NORMAL);
                     RenderHelper.enableGUIStandardItemLighting();
-                    translatedRenderItem.zLevel = ITEM_STACK_Z - MAGIC_RENDER_ITEM_Z;
-                    translatedRenderItem
-                        .renderItemAndEffectIntoGUI(fontRendererObj, mc.getTextureManager(), toRender, 0, 0);
+                    // A native fluid stack draws only its icon. The NEI display item can
+                    // draw an NBT-encoded quantity even with ItemStack.stackSize set to one.
+                    output.drawInGui(mc, 0, 0);
+                    output.drawOverlayInGui(mc, 0, 0, true, true, false, false);
+                    GL11.glPopAttrib();
                     GL11.glTranslatef(0.0f, 0.0f, ITEM_STACK_OVERLAY_Z);
-                    aeRenderItem.setAeStack(AEItemStack.create(toRender));
-                    aeRenderItem.renderItemOverlayIntoGUI(fontRendererObj, mc.getTextureManager(), toRender, 0, 0);
-                    aeRenderItem.zLevel = 0.0f;
                     RenderHelper.disableStandardItemLighting();
                     if (!tooltip) {
                         if (entry.slotIsBroken(slotIdx)) {
                             GL11.glTranslatef(0.0f, 0.0f, SLOT_Z - ITEM_STACK_OVERLAY_Z);
-                            drawRect(0, 0, 16, 16, GuiColors.ItemSlotOverlayInvalid.getColor());
+                            drawRect(0, 0, 16, 16, ColorUtils.itemSlotOverlayInvalid.getColor());
                         } else if (entry.filteredRecipes[slotIdx]) {
                             GL11.glTranslatef(0.0f, 0.0f, ITEM_STACK_OVERLAY_Z);
-                            drawRect(0, 0, 16, 16, GuiColors.ItemSlotOverlayUnpowered.getColor());
+                            drawRect(0, 0, 16, 16, ColorUtils.itemSlotOverlayUnpowered.getColor());
                         }
                     } else {
                         tooltipStack = stack;
@@ -660,7 +765,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 } else if (entry.filteredRecipes[slotIdx]) {
                     GL11.glPushMatrix();
                     GL11.glTranslatef(colLeft, viewY + rowYTop + 1, ITEM_STACK_OVERLAY_Z);
-                    drawRect(0, 0, 16, 16, GuiColors.ItemSlotOverlayUnpowered.getColor());
+                    drawRect(0, 0, 16, 16, ColorUtils.itemSlotOverlayUnpowered.getColor());
                     GL11.glPopMatrix();
                 } else if (drawHighlightSlot) {
                     // draw first slot bg
@@ -693,11 +798,15 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     public List<String> handleItemTooltip(ItemStack stack, int mouseX, int mouseY, List<String> currentToolTip) {
-        return currentToolTip;
+        return super.handleItemTooltip(stack, mouseX, mouseY, currentToolTip);
     }
 
     @Override
     public ItemStack getHoveredStack() {
+        // Let AE expose the item panel's virtual slots to NEI, including empty slots.
+        if (this.getVirtualMESlotUnderMouse() != null) {
+            return super.getHoveredStack();
+        }
         return tooltipStack;
     }
 
@@ -803,6 +912,12 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     protected void keyTyped(final char character, final int key) {
+        if (searchSettings != null) {
+            if (key == Keyboard.KEY_ESCAPE || key == mc.gameSettings.keyBindInventory.getKeyCode()) {
+                searchSettings = null;
+            }
+            return;
+        }
         if (key == Keyboard.KEY_TAB) {
             this.searchFieldNames.setSuggestionToText();
         } else if (!checkHotbarKeys(key)) {
@@ -827,6 +942,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
     @Override
     protected boolean mouseWheelEvent(int mouseX, int mouseY, int wheel) {
+        if (searchSettings != null) return true;
         boolean isMouseInViewport = isMouseInViewport(mouseX, mouseY);
         GuiScrollbar scrollbar = getScrollBar();
         if (isMouseInViewport && isCtrlKeyDown()) {
@@ -874,16 +990,20 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         if ((statusFlags & PacketInterfaceTerminalUpdate.CLEAR_ALL_BIT)
             == PacketInterfaceTerminalUpdate.CLEAR_ALL_BIT) {
             /* Should clear all client entries. */
-            this.masterList.list.clear();
+            this.masterList.clear();
         }
         /* Should indicate disconnected, so the terminal turns dark. */
         this.online = (statusFlags & PacketInterfaceTerminalUpdate.DISCONNECT_BIT)
             != PacketInterfaceTerminalUpdate.DISCONNECT_BIT;
+        if (!this.online) ClientProxy.setInterfaceHighlightEntry(null);
 
         for (PacketInterfaceTerminalUpdate.PacketEntry cmd : updates) {
             parsePacketCmd(cmd);
         }
         this.masterList.markDirty();
+        if (!isCurrentHighlightEntry(ClientProxy.getInterfaceHighlightEntry())) {
+            ClientProxy.setInterfaceHighlightEntry(null);
+        }
 
     }
 
@@ -893,12 +1013,15 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = new InterfaceWirelessEntry(
                 id,
                 addCmd.name,
+                addCmd.suffix,
                 addCmd.rows,
                 addCmd.rowSize,
+                addCmd.numSlots,
                 addCmd.online,
                 addCmd.p2pOutput).setLocation(addCmd.x, addCmd.y, addCmd.z, addCmd.dim, addCmd.side)
                     .setIcons(addCmd.selfRep, addCmd.dispRep)
                     .setItems(addCmd.items);
+            entry.terminalVisible = addCmd.terminalVisible;
             masterList.addEntry(entry);
         } else if (cmd instanceof PacketInterfaceTerminalUpdate.PacketRemove) {
             masterList.removeEntry(id);
@@ -913,9 +1036,17 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 entry.online = owCmd.online;
             }
 
+            if (owCmd.terminalVisibleValid) {
+                entry.terminalVisible = owCmd.terminalVisible;
+            }
+
+            if (owCmd.sizeValid) {
+                entry.resize(owCmd.rows, owCmd.rowSize, owCmd.numSlots);
+            }
+
             if (owCmd.itemsValid) {
                 if (owCmd.allItemUpdate) {
-                    entry.fullItemUpdate(owCmd.items, owCmd.validIndices.length);
+                    entry.fullItemUpdate(owCmd.items);
                 } else {
                     entry.partialItemUpdate(owCmd.items, owCmd.validIndices);
                 }
@@ -925,11 +1056,9 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = masterList.list.get(id);
 
             if (entry != null) {
-                if (StatCollector.canTranslate(renameCmd.newName)) {
-                    entry.dispName = StatCollector.translateToLocal(renameCmd.newName);
-                } else {
-                    entry.dispName = StatCollector.translateToFallback(renameCmd.newName);
-                }
+                entry.dispRep = renameCmd.dispRep;
+                entry.setName(renameCmd.newName, renameCmd.suffix);
+                masterList.moveEntry(entry);
             }
             masterList.isDirty = true;
         }
@@ -953,15 +1082,29 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
 
         for (int i = 0; i < tags.tagCount(); i++) {
             final NBTTagCompound tag = tags.getCompoundTagAt(i);
-            final ItemStack parsedItemStack = ItemStack.loadItemStackFromNBT(tag);
+            // Modern ultimate patterns store fluids as generic AE stacks. Loading every
+            // entry as an ItemStack makes those entries look unknown and prevents searching
+            // by their fluid name.
+            final IAEStack<?> parsedStack;
+            try {
+                parsedStack = Platform.readStackNBT(tag, true);
+            } catch (final Throwable ignored) {
+                // Keep malformed entries searchable as "unknown" without breaking the
+                // rest of the terminal list.
+                if (containsInvalidDisplayName && !tag.hasNoTags()) {
+                    return true;
+                }
+                continue;
+            }
 
-            if (parsedItemStack != null) {
-                final String displayName = Platform.getItemDisplayName(
-                    AEApi.instance()
-                        .storage()
-                        .createItemStack(parsedItemStack))
-                    .toLowerCase();
-                if (NeCharUtil.INSTANCE.contains(searchTerm, displayName)) {
+            if (parsedStack != null) {
+                final String displayName = parsedStack instanceof IAEItemStack item ? Platform.getItemDisplayName(item)
+                    : parsedStack.getDisplayName();
+                if (displayName == null) {
+                    continue;
+                }
+                final String normalizedDisplayName = displayName.toLowerCase();
+                if (NeCharUtil.INSTANCE.contains(searchTerm, normalizedDisplayName)) {
                     return true;
                 }
             } else if (containsInvalidDisplayName && !tag.hasNoTags()) {
@@ -988,10 +1131,23 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             return false;
         }
 
+        final ItemStack candidate = itemStack.copy();
+        if (candidate.stackTagCompound != null) {
+            // PatternHelper/UltimatePatternHelper cache parse failures by writing this flag
+            // into the supplied stack. Never let a client-side validation pass mutate the
+            // terminal entry, and discard a stale flag before revalidating with its own item
+            // parser.
+            candidate.stackTagCompound.removeTag("InvalidPattern");
+        }
+
+        if (!(candidate.getItem() instanceof ICraftingPatternItem patternItem)) {
+            return true;
+        }
+
         try {
-            new PatternHelper(itemStack, w);
-            return false;
-        } catch (final Throwable t) {
+            final ICraftingPatternDetails details = patternItem.getPatternForItem(candidate, w);
+            return details == null;
+        } catch (final Throwable ignored) {
             return true;
         }
     }
@@ -1019,9 +1175,14 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
     }
 
     public void setHighlightSlot() {
+        ClientProxy.setInterfaceHighlightEntry(null);
+        if (!this.online) return;
         for (InterfaceWirelessSection section : this.masterList.getVisibleSections()) {
-            for (InterfaceWirelessEntry entry : section.entries) {
-                for (int i = 0; i < entry.inv.getSizeInventory(); i++) {
+            Iterator<InterfaceWirelessEntry> entries = section.getVisible();
+            while (entries.hasNext()) {
+                InterfaceWirelessEntry entry = entries.next();
+                if (!entry.online || entry.p2pOutput || !entry.terminalVisible) continue;
+                for (int i = 0; i < entry.numSlots; i++) {
                     ItemStack item = entry.inv.getStackInSlot(i);
                     if (item == null) {
                         ClientProxy.setInterfaceHighlightEntry(new InterfaceWirelessEntryWrapper(entry, i));
@@ -1030,6 +1191,26 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 }
             }
         }
+    }
+
+    public boolean isCurrentHighlightEntry(InterfaceWirelessEntryWrapper wrapper) {
+        if (wrapper == null || !this.online) return false;
+        InterfaceWirelessEntry entry = wrapper.entry;
+        if (this.masterList.list.get(entry.id) != entry || !entry.online
+            || entry.p2pOutput
+            || !entry.terminalVisible
+            || wrapper.slot < 0
+            || wrapper.slot >= entry.numSlots
+            || entry.inv.getStackInSlot(wrapper.slot) != null) return false;
+        for (InterfaceWirelessSection section : this.masterList.getVisibleSections()) {
+            if (section == entry.section) {
+                Iterator<InterfaceWirelessEntry> entries = section.getVisible();
+                while (entries.hasNext()) {
+                    if (entries.next() == entry) return true;
+                }
+            }
+        }
+        return false;
     }
 
     public static class InterfaceWirelessEntryWrapper {
@@ -1063,21 +1244,23 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             this.isDirty = true;
         }
 
+        private void clear() {
+            list.clear();
+            sections.clear();
+            visibleSections.clear();
+            hoveredEntry = null;
+            height = 0;
+            isDirty = true;
+            ClientProxy.setInterfaceHighlightEntry(null);
+        }
+
         /**
          * Performs a full update.
          */
         private void update() {
             height = 0;
             visibleSections.clear();
-            String[] list = GuiBaseInterfaceWireless.this.searchFieldNames.getText()
-                .split(" ");
-            out: for (InterfaceWirelessSection section : sections.values()) {
-                for (String query : list) {
-                    if (!NeCharUtil.INSTANCE.contains(query.toLowerCase(), section.name.toLowerCase())) {
-                        continue out;
-                    }
-                }
-
+            for (InterfaceWirelessSection section : sections.values()) {
                 section.isDirty = true;
                 if (section.getVisible()
                     .hasNext()) {
@@ -1139,6 +1322,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         }
 
         public void addEntry(InterfaceWirelessEntry entry) {
+            removeEntry(entry.id);
             InterfaceWirelessSection section = sections.get(entry.dispName);
 
             if (section == null) {
@@ -1154,8 +1338,19 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             InterfaceWirelessEntry entry = list.remove(id);
 
             if (entry != null) {
-                entry.section.removeEntry(entry);
+                InterfaceWirelessSection section = entry.section;
+                section.removeEntry(entry);
+                if (section.entries.isEmpty()) sections.remove(section.name);
+                if (hoveredEntry == entry) hoveredEntry = null;
+                InterfaceWirelessEntryWrapper highlight = ClientProxy.getInterfaceHighlightEntry();
+                if (highlight != null && highlight.entry == entry) ClientProxy.setInterfaceHighlightEntry(null);
+                isDirty = true;
             }
+        }
+
+        private void moveEntry(InterfaceWirelessEntry entry) {
+            if (entry.section != null && entry.dispName.equals(entry.section.name)) return;
+            addEntry(entry);
         }
 
         public List<InterfaceWirelessSection> getVisibleSections() {
@@ -1240,7 +1435,14 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 .toLowerCase();
 
             for (InterfaceWirelessEntry entry : entries) {
-                if (!entry.online || entry.p2pOutput) continue;
+                if (!entry.online || entry.p2pOutput || !entry.terminalVisible) continue;
+                if (!recipeMapSearch.matches(
+                    searchFieldNames.getText(),
+                    entry.dispName,
+                    interfaceRecipeMaps.get(entry.id),
+                    Config.interfaceTerminalMatchRecipeMaps,
+                    StatCollector::translateToLocal,
+                    NeCharUtil.INSTANCE::contains)) continue;
                 var moleAss = AEApi.instance()
                     .definitions()
                     .blocks()
@@ -1252,7 +1454,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                     continue;
                 }
                 if (AEConfig.instance.showOnlyInterfacesWithFreeSlotsInInterfaceTerminal
-                    && entry.numItems == entry.rows * entry.rowSize) {
+                    && entry.numItems >= entry.numSlots) {
                     continue;
                 }
                 if (onlyBrokenRecipes && !entry.hasBrokenSlot()) {
@@ -1320,6 +1522,8 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
      */
     public class InterfaceWirelessEntry {
 
+        private String rawName;
+        private String nameSuffix;
         String dispName;
         AppEngInternalInventory inv;
         GuiFCImgButton optionsButton;
@@ -1334,22 +1538,24 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
         long id;
         int x, y, z, dim, side;
         int rows, rowSize;
+        int numSlots;
         int guiHeight;
         int dispY = -9999;
         boolean online;
         boolean p2pOutput;
+        boolean terminalVisible = true;
         private Boolean[] brokenRecipes;
         int numItems = 0;
         /** Should recipe be filtered out/grayed out? */
         boolean[] filteredRecipes;
         private int hoveredSlotIdx = -1;
 
-        InterfaceWirelessEntry(long id, String name, int rows, int rowSize, boolean online, boolean p2pOutput) {
+        InterfaceWirelessEntry(long id, String name, String suffix, int rows, int rowSize, int numSlots, boolean online,
+            boolean p2pOutput) {
             this.id = id;
-            this.dispName = CraftingCPUCluster.translateFromNetwork(name);
-            this.inv = new AppEngInternalInventory(null, rows * rowSize, 1);
-            this.rows = rows;
-            this.rowSize = rowSize;
+            this.rawName = name;
+            this.nameSuffix = suffix;
+            this.resize(rows, rowSize, numSlots);
             this.online = online;
             this.p2pOutput = p2pOutput;
             this.optionsButton = new GuiFCImgButton(2, 0, "HIGHLIGHT", "YES");
@@ -1361,9 +1567,6 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 this.doubleButton.setHalfSize(true);
             }
 
-            this.guiHeight = 18 * rows + 1;
-            this.brokenRecipes = new Boolean[rows * rowSize];
-            this.filteredRecipes = new boolean[rows * rowSize];
         }
 
         InterfaceWirelessEntry setLocation(int x, int y, int z, int dim, int side) {
@@ -1380,49 +1583,108 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
             // Kotlin would make this pretty easy :(
             this.selfRep = selfRep;
             this.dispRep = dispRep;
+            this.setName(this.rawName, this.nameSuffix);
 
             return this;
         }
 
-        public void fullItemUpdate(NBTTagList items, int newSize) {
-            inv = new AppEngInternalInventory(null, newSize);
-            rows = newSize / rowSize;
-            brokenRecipes = new Boolean[newSize];
+        private void setName(String rawName, String suffix) {
+            this.rawName = rawName;
+            this.nameSuffix = suffix;
+            this.dispName = InterfaceTerminalNames.getDisplayName(rawName, suffix, this.dispRep, this.selfRep);
+        }
+
+        private void resize(int rows, int rowSize, int numSlots) {
+            this.rows = Math.max(0, rows);
+            this.rowSize = Math.max(1, rowSize);
+            // Don't limit numSlots by rows * rowSize - for GT Not Leisure super patterns (360 slots),
+            // the actual slot count should be preserved
+            this.numSlots = Math.max(0, numSlots);
+            AppEngInternalInventory previous = this.inv;
+            this.inv = new AppEngInternalInventory(null, this.numSlots, 1);
+            this.brokenRecipes = new Boolean[this.numSlots];
+            this.filteredRecipes = new boolean[this.numSlots];
+            this.numItems = 0;
+            if (previous != null) {
+                for (int i = 0; i < Math.min(previous.getSizeInventory(), this.numSlots); i++) {
+                    setItemInSlot(previous.getStackInSlot(i), i);
+                }
+            }
+            // Recalculate guiHeight based on actual numSlots, not just rows
+            int actualRows = (int) Math.ceil((double) this.numSlots / this.rowSize);
+            this.guiHeight = actualRows * 18 + 1;
+        }
+
+        public void fullItemUpdate(NBTTagList items) {
+            inv = new AppEngInternalInventory(null, numSlots, 1);
+            brokenRecipes = new Boolean[numSlots];
+            filteredRecipes = new boolean[numSlots];
             numItems = 0;
 
             for (int i = 0; i < inv.getSizeInventory(); ++i) {
                 setItemInSlot(ItemStack.loadItemStackFromNBT(items.getCompoundTagAt(i)), i);
             }
-            this.guiHeight = 18 * rows + 4;
         }
 
         InterfaceWirelessEntry setItems(NBTTagList items) {
-            assert items.tagCount() == inv.getSizeInventory();
-
-            for (int i = 0; i < items.tagCount(); ++i) {
+            for (int i = 0; i < Math.min(items.tagCount(), numSlots); ++i) {
                 setItemInSlot(ItemStack.loadItemStackFromNBT(items.getCompoundTagAt(i)), i);
             }
             return this;
         }
 
         public void partialItemUpdate(NBTTagList items, int[] validIndices) {
-            for (int i = 0; i < validIndices.length; ++i) {
+            if (validIndices == null) return;
+            for (int i = 0; i < Math.min(validIndices.length, items.tagCount()); ++i) {
                 setItemInSlot(ItemStack.loadItemStackFromNBT(items.getCompoundTagAt(i)), validIndices[i]);
             }
         }
 
         private void setItemInSlot(ItemStack stack, int idx) {
+            if (idx < 0 || idx >= numSlots) return;
             try {
+                stack = clearStalePatternFlag(stack);
                 final int oldHasItem = inv.getStackInSlot(idx) != null ? 1 : 0;
                 final int newHasItem = stack != null ? 1 : 0;
 
                 inv.setInventorySlotContents(idx, stack);
+                brokenRecipes[idx] = null;
+                filteredRecipes[idx] = false;
                 // Update item count
                 numItems += newHasItem - oldHasItem;
                 assert numItems >= 0;
             } catch (Exception e) {
                 AELog.error(e);
             }
+        }
+
+        /**
+         * AE's pattern helpers mark the supplied stack with InvalidPattern when a legacy
+         * parser encounters a modern generic fluid entry. The server entry may therefore
+         * contain a stale client-side marker even though the item's own parser accepts it.
+         * Validate a copy and only replace the displayed copy when the native parser succeeds.
+         */
+        private ItemStack clearStalePatternFlag(final ItemStack stack) {
+            if (stack == null || !(stack.getItem() instanceof ICraftingPatternItem patternItem)
+                || stack.getTagCompound() == null
+                || !stack.getTagCompound()
+                    .getBoolean("InvalidPattern")) {
+                return stack;
+            }
+
+            final World world = CommonHelper.proxy.getWorld();
+            if (world == null) return stack;
+
+            final ItemStack candidate = stack.copy();
+            candidate.stackTagCompound.removeTag("InvalidPattern");
+            try {
+                if (patternItem.getPatternForItem(candidate, world) != null) {
+                    return candidate;
+                }
+            } catch (final Throwable ignored) {
+                // Preserve the original marker for genuinely malformed patterns.
+            }
+            return stack;
         }
 
         public boolean hasBrokenSlot() {
@@ -1470,6 +1732,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 this.dispName);
             NBTTagCompound data = new NBTTagCompound();
             blockPos.writeToNBT(data);
+            data.setLong("entryId", this.id);
             return data;
         }
 
@@ -1523,6 +1786,7 @@ public class GuiBaseInterfaceWireless extends BaseMEGui implements IDropToFillTe
                 final int col = offsetX / 18;
                 final int row = offsetY / 18;
                 final int slotIdx = row * rowSize + col;
+                if (slotIdx >= numSlots) return false;
 
                 // send packet to server, request an update
                 // TODO: Client prediction.
