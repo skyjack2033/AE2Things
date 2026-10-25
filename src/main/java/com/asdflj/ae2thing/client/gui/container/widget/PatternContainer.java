@@ -22,6 +22,7 @@ import com.asdflj.ae2thing.client.gui.container.slot.SlotPattern;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
 import com.asdflj.ae2thing.inventory.IPatternTerminal;
 import com.asdflj.ae2thing.inventory.item.WirelessTerminal;
+import com.asdflj.ae2thing.loader.ItemAndBlockHolder;
 import com.asdflj.ae2thing.util.PatternStackCodec;
 import com.glodblock.github.util.Util;
 
@@ -63,6 +64,7 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
     private final ContainerWirelessDualInterfaceTerminal container;
     private final List<Slot> slots = new ArrayList<>();
     private final ITerminalHost host;
+    private int refillTicks;
 
     public PatternContainer(InventoryPlayer ip, ITerminalHost host, ContainerWirelessDualInterfaceTerminal container) {
         this.container = container;
@@ -181,6 +183,10 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
             if (this.container.isCraftingMode() != this.it.isCraftingRecipe()) {
                 this.container.setCraftingMode(this.it.isCraftingRecipe());
                 this.updateOrderOfOutputSlots();
+            }
+            if (this.hasInfiniteRefillerUpgrade() && ++this.refillTicks >= 20) {
+                this.refillTicks = 0;
+                this.refillBlankPatterns(this.patternSlotIN);
             }
         }
     }
@@ -334,6 +340,12 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
             .hasRefillerUpgrade();
     }
 
+    private boolean hasInfiniteRefillerUpgrade() {
+        ItemStack upgrade = this.it.getInventoryByName(Constants.UPGRADES)
+            .getStackInSlot(0);
+        return upgrade != null && upgrade.getItem() == ItemAndBlockHolder.ITEM_INFINITY_PATTERN_CARD;
+    }
+
     @Override
     public void refillBlankPatterns(Slot slot) {
         if (Platform.isServer() && this.it instanceof WirelessTerminal wt) {
@@ -341,6 +353,20 @@ public class PatternContainer implements IPatternContainer, IOptionalSlotHost, I
             int blanksToRefill = 64;
             if (blanks != null) blanksToRefill -= blanks.stackSize;
             if (blanksToRefill <= 0) return;
+            if (this.hasInfiniteRefillerUpgrade()) {
+                if (blanks == null) {
+                    blanks = AEApi.instance()
+                        .definitions()
+                        .materials()
+                        .blankPattern()
+                        .maybeStack(64)
+                        .get();
+                } else {
+                    blanks.stackSize = 64;
+                }
+                slot.putStack(blanks);
+                return;
+            }
             final AEItemStack request = AEItemStack.create(
                 AEApi.instance()
                     .definitions()

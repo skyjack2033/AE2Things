@@ -19,6 +19,7 @@ public class NameConst {
     public static final String ITEM_PART_WIRELESS_CONNECTOR_TERMINAL = "part_wireless_connector_terminal";
     public static final String ITEM_WIRELESS_CONNECTOR_TERMINAL = "wireless_connector_terminal";
     public static final String ITEM_PATTERN_MODIFIER = "pattern_modifier";
+    public static final String ITEM_INFINITY_PATTERN_CARD = "infinity_pattern_card";
     public static final String ITEM_WIRELESS_DUAL_INTERFACE_TERMINAL = "wireless_dual_interface_terminal";
     public static final String ITEM_PHIAL = "phial";
     public static final String ITEM_PART_MANA_IMPORT = "part_mana_import";

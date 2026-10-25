@@ -14,6 +14,7 @@ item.wireless_connector_terminal.name=ME无线连接终端
 item.crafting_debug_card.name=合成DEBUG卡
 item.toggleable_view_cell.name=可切换显示元件
 item.pattern_modifier.name=样板修改器
+item.infinity_pattern_card.name=无限样板卡
 item.wire_cutter.name=ME剪线钳(WIP)
 tile.fishbig.name=鱼大
 tile.MDDyue.name=猫蛋蛋

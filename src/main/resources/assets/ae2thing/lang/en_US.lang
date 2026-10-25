@@ -14,6 +14,7 @@ item.wireless_connector_terminal.name=ME Wireless Connector Terminal
 item.crafting_debug_card.name=Crafting Debug Card
 item.toggleable_view_cell.name=Toggleable View Cell
 item.pattern_modifier.name=Pattern Modifier
+item.infinity_pattern_card.name=Infinity Pattern Card
 item.wire_cutter.name=ME Wire Cutter(WIP)
 tile.fishbig.name=FishBig
 tile.MDDyue.name=MDDyue
