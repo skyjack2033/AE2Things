@@ -26,6 +26,7 @@ import net.minecraftforge.fluids.IFluidContainerItem;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.asdflj.ae2thing.client.gui.GuiBaseInterfaceWireless;
+import com.asdflj.ae2thing.client.gui.container.slot.SlotPattern;
 import com.asdflj.ae2thing.client.gui.container.slot.SlotPatternFake;
 import com.asdflj.ae2thing.client.gui.container.widget.IWidgetPatternContainer;
 import com.asdflj.ae2thing.client.gui.container.widget.PatternContainer;
@@ -216,7 +217,8 @@ public class ContainerWirelessDualInterfaceTerminal extends ContainerMonitor
             } else if (id == -1) {
                 Slot s = this.inventorySlots.get(slotId);
                 if (s == null) return;
-                if (((s instanceof SlotPatternFake) || (s instanceof SlotFakeCraftingMatrix)
+                if (((s instanceof SlotPattern) || (s instanceof SlotPatternFake)
+                    || (s instanceof SlotFakeCraftingMatrix)
                     || (s instanceof SlotPatternTerm))) {
                     if (action == InventoryAction.MOVE_REGION) {
                         super.doAction(player, InventoryAction.MOVE_REGION, slotId, id);

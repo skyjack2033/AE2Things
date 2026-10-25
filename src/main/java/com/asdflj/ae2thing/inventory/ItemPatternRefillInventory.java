@@ -4,6 +4,8 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 
+import com.asdflj.ae2thing.loader.ItemAndBlockHolder;
+
 import appeng.api.AEApi;
 import appeng.core.AELog;
 import appeng.tile.inventory.AppEngInternalInventory;
@@ -64,11 +66,11 @@ public class ItemPatternRefillInventory extends AppEngInternalInventory {
 
     @Override
     public boolean isItemValidForSlot(final int i, final ItemStack itemstack) {
-        return i == 0 && getStackInSlot(0) == null
-            && AEApi.instance()
+        return i == 0 && itemstack != null
+            && (AEApi.instance()
                 .definitions()
                 .materials()
                 .basicCard()
-                .isSameAs(itemstack);
+                .isSameAs(itemstack) || itemstack.getItem() == ItemAndBlockHolder.ITEM_INFINITY_PATTERN_CARD);
     }
 }
